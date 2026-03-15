@@ -1,20 +1,26 @@
-# projet-perso-dbdapp
+# DBD App: The Entity's Wiki
 
-Public copy of the DBD app project.
+Android app project for the Dead by Daylight companion app, built with Capacitor around the web version of the site.
 
-## Contents
+## Project Structure
+- `the-entity-wiki/web/` static frontend bundled into the app
+- `the-entity-wiki/android/` native Android project
 - `api/` data files and helper scripts
-- `assets/` shared images and static assets
-- `the-entity-wiki/` Capacitor Android project and bundled web app
+- `assets/` shared images and resources
 
-## Notes
-- Android signing files and local machine config are intentionally excluded.
-- Generated dependencies, virtual environments, build output, and archive folders are intentionally excluded.
-
-## Local usage
+## Build
 ```bash
 cd the-entity-wiki
 npm install
 npm run sync
 npm run android:build
 ```
+
+## Open In Android Studio
+```bash
+cd the-entity-wiki
+npm run android:open
+```
+
+## Signed Releases
+For production signing, add your own Android keystore and signing configuration locally before building a release APK or AAB.
