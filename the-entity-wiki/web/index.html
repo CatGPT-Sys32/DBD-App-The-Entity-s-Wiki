@@ -12,14 +12,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>DBD Companion App</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
-    rel="stylesheet">
+  <script src="./vendor/react.production.min.js"></script>
+  <script src="./vendor/react-dom.production.min.js"></script>
+  <script src="./vendor/babel.min.js"></script>
+  <script src="./vendor/tailwindcss.min.js"></script>
   <style>
     :root {
       --bg-01: #090b11;
@@ -42,7 +38,7 @@
     body {
       background: linear-gradient(160deg, var(--bg-01), var(--bg-02));
       color: var(--text);
-      font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       overflow: hidden;
       letter-spacing: 0.01em;
       position: relative;
@@ -649,11 +645,18 @@
       }
       return words.map(w => w[0]).join('').toUpperCase();
     };
+    const perkMatchesName = (perk, name) => {
+      if (!perk || !name) return false;
+      const target = String(name).toLowerCase();
+      return perk.name.toLowerCase() === target || (perk.aliases || []).some(alias => alias.toLowerCase() === target);
+    };
     const buildPerkLookup = (perks) => {
       const lookup = {};
       perks.forEach(p => {
-        const code = getPerkCode(p.name);
-        if (!lookup[code]) lookup[code] = p;
+        [p.name].concat(p.aliases || []).forEach(label => {
+          const code = getPerkCode(label);
+          if (!lookup[code]) lookup[code] = p;
+        });
       });
       return lookup;
     };
@@ -732,7 +735,7 @@
             if (found) return { id: found.id, name: found.name };
           }
           if (perkData.n) {
-            const found = perks.find(p => p.name.toLowerCase() === perkData.n.toLowerCase());
+            const found = perks.find(p => perkMatchesName(p, perkData.n));
             if (found) {
               warnings.push(`Perk "${perkData.n}" matched by name`);
               return { id: found.id, name: found.name };
@@ -846,7 +849,7 @@
           if (lookup[upperCode]) {
             resolvedPerks.push({ id: lookup[upperCode].id, name: lookup[upperCode].name });
           } else {
-            const fuzzy = perks.find(p => getPerkCode(p.name) === upperCode);
+            const fuzzy = perks.find(p => [p.name].concat(p.aliases || []).some(label => getPerkCode(label) === upperCode));
             if (fuzzy) {
               resolvedPerks.push({ id: fuzzy.id, name: fuzzy.name });
             } else {
@@ -879,9 +882,9 @@
       }
     };
     const META = {
-      appVersion: "5.21.0",
-      gameVersion: "9.4.2",
-      lastSynced: "February 21, 2026",
+      appVersion: "5.23.0",
+      gameVersion: "9.5.0",
+      lastSynced: "March 29, 2026",
       contact: {
         email: "baptistedeparday@gmail.com",
         discord: "hexplosions_happen"
@@ -895,6 +898,26 @@
       ]
     };
     const CHANGELOG = [
+      {
+        version: "5.23.0",
+        date: "March 29, 2026",
+        changes: [
+          "UPDATE : Added the new All Kill Combeback content",
+          "FIX : Unified image loading across the app",
+          "FIX : Added missing icons for the few remaining assets that were not included in the initial bundle",
+          "FIX : Removed unecessary scripts that slowed app loading"
+        ]
+      },
+      {
+        version: "5.22.0",
+        date: "March 29, 2026",
+        changes: [
+          "UPDATE : Offline database refreshed to DBD 9.5.0 All-Kill: Comeback",
+          "NEW : Added Kwon Tae-Young, Sleepless District, and Trickster's Delusion",
+          "UPDATE : Refreshed Trickster, The First, and key perk descriptions to match the live snapshot",
+          "UPDATE : Progression tracker and perk references synced with current live perk names"
+        ]
+      },
       {
         version: "5.21.0",
         date: "March 3, 2026",
@@ -1377,8 +1400,6 @@
       });
       return map;
     })();
-    const CDN_BASE = "https://dbd.tricky.lol";
-    const LOCAL_IMAGE_ROOT = "./dbd_images";
     const STORAGE_KEYS = {
       builds: 'dbd_builds_v1',
       matches: 'dbd_matches_v1',
@@ -1633,32 +1654,8 @@
     const BottomSheet = ({ isOpen, onClose, perk }) => {
       const [dragY, setDragY] = useState(0);
       const [isDragging, setIsDragging] = useState(false);
-      const [imgSrcIndex, setImgSrcIndex] = useState(0);
       const startYRef = useRef(0);
-      useEffect(() => {
-        setImgSrcIndex(0);
-      }, [perk?.id]);
       if (!isOpen || !perk) return null;
-      const imageUrl = perk.image || '';
-      const baseName = imageUrl.split('/').pop()?.split('?')[0] || '';
-      const withExt = baseName.includes('.') ? baseName : `${baseName}.png`;
-      const candidates = baseName ? buildPerkCandidates(withExt) : [];
-      // Also generate candidates from the perk name itself (handles Scourge Hook, Hex, Boon perks)
-      const nameToFileName = (name) => {
-        const cleaned = name.replace(/[^a-zA-Z0-9]/g, '');
-        return [
-          `IconPerks_${cleaned[0].toLowerCase()}${cleaned.slice(1)}.png`,
-          `iconperks_${cleaned.toLowerCase()}.png`,
-          `IconPerks_${cleaned}.png`
-        ];
-      };
-      const nameCandidates = perk.name ? nameToFileName(perk.name) : [];
-      const allCandidates = [...new Set([...candidates, ...nameCandidates])];
-      const localPaths = allCandidates.map(c => `./dbd_images/perks/${c}`);
-      const cdnUrl = imageUrl.startsWith('http') ? imageUrl : (imageUrl ? `${CDN_BASE}/${imageUrl}` : '');
-      const allSources = [...localPaths, cdnUrl].filter(Boolean);
-      const currentImgSrc = allSources[imgSrcIndex];
-      const showFallbackIcon = imgSrcIndex >= allSources.length || allSources.length === 0;
       const handleTouchStart = (e) => {
         startYRef.current = e.touches[0].clientY;
         setIsDragging(true);
@@ -1701,16 +1698,12 @@
             {/* Perk header */}
             <div className="flex items-start gap-4 mb-4">
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 flex items-center justify-center">
-                {!showFallbackIcon && currentImgSrc ? (
-                  <img
-                    src={currentImgSrc}
-                    alt={perk.name}
-                    className="w-full h-full object-cover p-1"
-                    onError={() => setImgSrcIndex(prev => prev + 1)}
-                  />
-                ) : (
-                  <Icons.Zap width={24} height={24} className="text-zinc-600" />
-                )}
+                <AssetFrame
+                  type="Perk"
+                  size="fill"
+                  imageUrl={perk.image}
+                  fallbackIcon={<Icons.Zap width={24} height={24} className="text-zinc-600" />}
+                />
               </div>
               <div className="flex-1">
                 <div className="inline-flex items-center px-2 py-1 rounded-md bg-white/5 mb-2">
@@ -1770,8 +1763,8 @@
     const DEFAULT_IMAGES = {
       Killer: './assets/default-killer.png',
       Survivor: './assets/default-survivor.png',
-      Perk: './assets/default-perk.png',
-      Map: './assets/default-map.png'
+      Perk: './assets/default-perk.svg',
+      Map: './assets/default-map.svg'
     };
     const MAP_LAYOUTS = {
       "Coal Tower": [
@@ -1933,14 +1926,17 @@
       "Prove Thyself": ["Resilience", "Spine Chill", "Stake Out"],
       "Resilience": ["Prove Thyself", "This Is Not Happening", "Spine Chill"],
       "Deja Vu": ["Prove Thyself", "Situational Awareness", "Fast Track"],
-      "Decisive Strike": ["Off the Record", "Unbreakable", "Dead Hard"],
-      "Off the Record": ["Decisive Strike", "Dead Hard", "Iron Will"],
+      "Will To Live": ["Off the Record", "Unbreakable", "Dead Hard"],
+      "Off the Record": ["Will To Live", "Dead Hard", "Iron Will"],
       "Borrowed Time": ["We're Gonna Live Forever", "Guardian", "Desperate Measures"],
+      "A Place For Us": ["We'll Make It", "Empathy", "We're Gonna Live Forever"],
+      "Five Moves Ahead": ["Windows of Opportunity", "Lithe", "Dance With Me"],
+      "Flow State": ["Botany Knowledge", "We'll Make It", "A Place For Us"],
       "Hex: Ruin": ["Hex: Undying", "Corrupt Intervention", "Surveillance"],
       "Pop Goes the Weasel": ["Brutal Strength", "Nowhere to Hide", "Call of Brine"],
       "Call of Brine": ["Overcharge", "Eruption", "Nowhere to Hide"],
       "Scourge Hook: Pain Resonance": ["Dead Man's Switch", "Grim Embrace", "Corrupt Intervention"],
-      "Save the Best for Last": ["Brutal Strength", "Enduring", "Spirit Fury"],
+      "Keep Them Waiting": ["Brutal Strength", "Enduring", "Spirit Fury"],
       "Enduring": ["Spirit Fury", "Brutal Strength", "Fire Up"],
       "Bamboozle": ["Fire Up", "Brutal Strength", "Crowd Control"],
       "I'm All Ears": ["Lethal Pursuer", "Nowhere to Hide", "A Nurse's Calling"],
@@ -2061,6 +2057,26 @@
           "Active RBTs start timer when a generator is completed",
           "Survivors must search Jigsaw Boxes to remove the trap before timer expires (death)"
         ]
+      },
+      trickster_950: {
+        powerName: "Showstopper",
+        mechanics: [
+          "Start the trial with 36 Blades and a 24m Terror Radius while moving at 4.4 m/s",
+          "Distinct back-to-back actions generate Style Points that raise you from E-Rank to S-Rank",
+          "Higher Style Ranks improve Blade throw rate and Locker restocking speed",
+          "At S-Rank, Survivors within 44m are revealed by Killer Instinct for 4.4 seconds and Main Event becomes available",
+          "Main Event lasts 10 seconds, throws Blades at 1.67x speed, then triggers a 4-second power cooldown"
+        ]
+      },
+      the_first_950: {
+        powerName: "Test Subject #001",
+        mechanics: [
+          "Strike with a targeted ground attack to force survivors off direct paths",
+          "Summon masses of vines to deny routes and punish stalled movement",
+          "Traverse the map through the Upside Down to ambush generators, rescues, and rotations",
+          "Use Worldbreaker pressure to snowball when survivors hesitate in unsafe spaces",
+          "Pair traversal and zoning so survivors are punished whether they hold position or panic-rotate"
+        ]
       }
     };
     const KILLER_GUIDES = {
@@ -2176,8 +2192,8 @@
       },
       "The Trickster": {
         powerName: "Showstopper",
-        survivorTips: "Line of sight is everything. If you stay in the open, knives stack and you go down fast. Rotate into tall cover, force him to move his crosshair constantly, and avoid long straight corridors. If you get injured, you must respect that knives can end it quickly.",
-        killerTips: "Build laceration by keeping consistent sight, not by spamming from bad angles. Herd survivors away from cover and into lanes where knives stick. Use your burst windows to finish a health state quickly, then immediately transition into the down. If a survivor hard-counters with cover, close distance and M1."
+        survivorTips: "Respect his shorter Terror Radius and lower movement speed, but do not mistake that for weakness. Break line of sight early, use tall cover, and deny the long lanes he needs to build Style Ranks. If he reaches S Rank, expect Main Event pressure immediately and rotate to hard cover instead of greeting him at a vault.",
+        killerTips: "Style Points are the real engine now. Chain blade hits, injuries, hooks, breaks, and generator kicks to keep your combo alive and climb to S Rank quickly. Use your 24m Terror Radius to sneak closer than survivors expect, then cash out on Main Event before they reset to safe cover."
       },
       "The Nemesis": {
         powerName: "T-Virus",
@@ -2268,6 +2284,11 @@
         powerName: "Unbodied Flesh",
         survivorTips: "She can separate and hunt as a floating head with higher speed and a nasty melee option, so do not rely on \"she can't reach me\" logic. Expect leech pressure that makes you weaker over time if you ignore it, and plan cures before it becomes a crisis. If she infests areas, stop sprinting through them mindlessly and rotate early. When she commits in head form, you need hard cover and sharp direction changes.",
         killerTips: "Use the head form to traverse quickly and to start chases at an advantage, then convert with the special attack pressure. Spread leech and infest key routes so survivors spend time curing instead of doing gens. Choose when to split: head form to locate and pressure, body form to secure hooks and defend. Keep survivors in a constant \"deal with it now or lose later\" loop."
+      },
+      "The First": {
+        powerName: "Test Subject #001",
+        survivorTips: "He threatens space in layers: a direct strike, spreading vines, and fast traversal through the Upside Down. Break line of sight before he commits, avoid lingering in narrow choke points, and rotate early when he cuts off the obvious lane. If he disappears into the Upside Down, assume he is pathing to your generator or rescue and reposition before he reappears on top of you.",
+        killerTips: "Use Test Subject #001 to make survivors choose between your attack and the map. Seed pressure with vines, then traverse through the Upside Down to arrive where survivors think they have time. Force movement first, then cash out on committed vaults, rescues, and generator greed. You win when survivors feel unsafe standing still anywhere."
       }
     };
     const KILLER_STATS = {
@@ -2293,7 +2314,7 @@
       "The Executioner": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Blight": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
       "The Twins": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
-      "The Trickster": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
+      "The Trickster": { terrorRadius: "24m", speed: "4.4 m/s", height: "Average" },
       "The Nemesis": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Cenobite": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Artist": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
@@ -2310,466 +2331,29 @@
       "The Dark Lord": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Houndmaster": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
       "The Animatronic": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
-      "The Krasue": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" }
+      "The Krasue": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
+      "The First": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" }
     };
-    const IMAGE_ALIASES = {
-      Killer: {
-        'k05_thehag_portrait.png': 'K06_TheHag_Portrait.png',
-        'k06_theshape_portrait.png': 'K05_TheShape_Portrait.png',
-        'k16_theghostface_portrait.png': 'K16_TheGhostFace_Portrait.png',
-        'k29_themastermind_portrait.png': 'K29_TheMastermind_Portrait.png',
-        'k34_theyerkes_portrait.png': 'k34_thegoodguy_portrait.png',
-        'k37_thedracula_portrait.png': 'k37_thedarklord_portrait.png',
-        't_ui_k41_thekrasue_portrait.png': 'K41_TheKrasue_Portrait.png',
-        'k42_thefirst_portrait.png': 'k42_thefirst_portrait.png'
-      },
-      Addon: {
-        'iconaddon_ironworkertongs.png': 'iconaddon_ironworkerstongs.png',
-        'iconaddon_townwatcttorch.png': 'iconaddon_townwatchstorch.png',
-        'iconaddon_blacksmithhammer.png': 'iconaddon_blacksmithshammer.png',
-        'iconaddon_knightcontract.png': 'iconaddon_knightscontract.png',
-        'iconaddon_mapoftherealms.png': 'iconaddon_mapoftherealm.png',
-        'iconaddon_awardwinningchili.png': 'iconaddon_award-winningchilli.png',
-        'iconaddon_chili.png': 'iconaddon_chilli.png',
-        'iconaddon_diciplinecartersnotes.png': 'iconaddon_disciplinecartersnotes.png',
-        'iconaddon_diciplineclassii.png': 'iconaddon_disciplineclassii.png',
-        'iconaddon_diciplineclassiii.png': 'iconaddon_disciplineclassiii.png',
-        'iconaddon_moldyelectrode.png': 'iconaddon_mouldyelectrode.png',
-        'iconaddon_chainsbloody.png': 'iconaddon_begrimedchains.png',
-        'iconaddon_chainsgrisly.png': 'iconaddon_grislychains.png',
-        'iconaddon_chainsrusted.png': 'iconaddon_rustedchains.png',
-        'iconaddon_lowprochains.png': 'iconaddon_loprochains.png',
-        'iconaddon_tunedcarburetor.png': 'iconaddon_tunedcarburettor.png',
-        'iconaddon_bloodyfingernail.png': 'iconaddon_bloodyfingernails.png',
-        'iconaddon_motherdaughterring.png': 'iconaddon_mother-daughterring.png',
-        'iconaddon_renirosbloodyglove.png': 'iconaddon_renjirosbloodyglove.png',
-        'iconaddon_syringe.png': 'iconaddon_anti-haemorrhagicsyringe.png',
-        'iconaddon_tuftofhair.png': 'iconaddon_fragranttuftofhair.png',
-        'iconaddon_thelegionbutton.png': 'iconaddon_thelegionpin.png',
-        'iconaddon_smileyfacebutton.png': 'iconaddon_smileyfacepin.png',
-        'iconaddon_defacedsmileybutton.png': 'iconaddon_defacedsmileypin.png',
-        'iconaddon_suziesmixtape.png': 'iconaddon_susiesmixtape.png',
-        'iconaddon_bloodwindstorm.png': 'iconaddon_windstorm-blood.png',
-        'iconaddon_mudwindstorm.png': 'iconaddon_windstorm-mud.png',
-        'iconaddon_whitewindstorm.png': 'iconaddon_windstorm-white.png',
-        'iconaddon_bloodswifthunt.png': 'iconaddon_swifthunt-blood.png',
-        'iconaddon_mudswifthunt.png': 'iconaddon_swifthunt-mud.png',
-        'iconaddon_whiteswifthunt.png': 'iconaddon_swifthunt-white.png',
-        'iconaddon_bloodshadowdance.png': 'iconaddon_shadowdance-blood.png',
-        'iconaddon_whiteshadowdance.png': 'iconaddon_shadowdance-white.png',
-        'iconaddon_mudblink.png': 'iconaddon_blink-mud.png',
-        'iconaddon_whiteblink.png': 'iconaddon_blink-white.png',
-        'iconaddon_whiteblindwarrior.png': 'iconaddon_blindwarrior-white.png',
-        'iconaddon_sootthebeast.png': 'iconaddon_thebeast-soot.png',
-        'iconaddon_soottheghost.png': 'iconaddon_theghost-soot.png',
-        'iconaddon_sootthehound.png': 'iconaddon_thehound-soot.png',
-        'iconaddon_soottheserpent.png': 'iconaddon_theserpent-soot.png',
-        'iconaddon_spiritallseeing.png': 'iconaddon_allseeing-blood.png',
-        'iconaddon_jumprope.png': 'iconaddon_jumpropedreamdemon.png',
-        'iconaddon_foreignplantfibers.png': 'iconaddon_foreignplantfibres.png',
-        'iconaddon_sulfuricacidvial.png': 'iconaddon_sulphuricacidvial.png',
-        'iconaddon_hematiteseal.png': 'iconaddon_haematiteseal.png',
-        'iconaddon_moltedskin.png': 'iconaddon_moultedskin.png',
-        'iconaddon_jewelry.png': 'iconaddon_jewellery.png',
-        'iconaddon_jewelrybox.png': 'iconaddon_jewellerybox.png',
-        'iconaddon_garishmakeupkit.png': 'iconaddon_garishmake-upkit.png',
-        'iconaddon_headlinescutouts.png': 'iconaddon_headlinecut-outs.png',
-        'iconaddon_neaparasite.png': 'iconaddon_ne-aparasite.png',
-        'iconaddon_neversleeppills.png': 'iconaddon_never-sleeppills.png',
-        'iconaddon_offbrandmotoroil.png': 'iconaddon_off-brandmotoroil.png',
-        'iconaddon_slowreleasetoxin.png': 'iconaddon_slow-releasetoxin.png',
-        'iconaddon_droplegknifesheath.png': 'iconaddon_drop-legknifesheath.png',
-        'iconaddon_highendsapphirelens.png': 'iconaddon_high-endsapphirelens.png',
-        'iconaddon_kanaianzentalisman.png': 'iconaddon_kanai-anzentalisman.png',
-        'iconaddon_coffeegrinds.png': 'iconaddon_coffeegrounds.png',
-        'iconaddon_gauseroll.png': 'iconaddon_gauzeroll.png',
-        'iconaddon_nightvisionmoncular.png': 'iconaddon_nightvisionmonocular.png',
-        'iconaddon_juniperbonzai.png': 'iconaddon_juniperbonsai.png',
-        'iconaddon_iridiscentcrystalshard.png': 'iconaddon_iridescentcrystalshard.png',
-        'iconaddon_vermillionwebcap.png': 'iconaddon_vermilionwebcap.png',
-        'iconaddon_jillsandwich.png': 'iconaddon_jillssandwich.png',
-        'iconaddon_maidenmedalliom.png': 'iconaddon_maidenmedallion.png',
-        'iconaddon_prototypeclaw.png': 'iconaddon_prototypeclaws.png',
-        'iconaddon_razerwire.png': 'iconaddon_razorwires.png',
-        'iconaddon_redheadspinkyfinger.png': 'iconaddon_redheadspinkiefinger.png',
-        'iconaddon_thebeastsmark.png': 'iconaddon_thebeastsmarks.png',
-        'iconaddon_honeylocustthorns.png': 'iconaddon_honeylocustthorn.png',
-        'iconaddon_goldchalice.png': 'iconaddon_chalicegold.png',
-        'iconaddon_stampodd.png': 'iconaddon_oddstamp.png',
-        'iconaddon_reusuablecinchstraps.png': 'iconaddon_cinchstraps.png',
-        'iconaddon_ether15.png': 'iconaddon_ether15vol.png',
-        'iconaddon_coilskit4.png': 'iconaddon_4-coilspringkit.png',
-        'iconaddon_rulessetn2.png': 'iconaddon_rulessetno.2.png',
-        'iconaddon_muddysportcap.png': 'iconaddon_muddysportsdaycap.png',
-        'iconaddon_uniquering.png': 'iconaddon_uniqueweddingring.png',
-        'iconaddon_clearcreekwhiskey.png': 'iconaddon_goldcreekwhiskey.png',
-        'iconaddon_catatonictreasure.png': 'iconaddon_catatonicboystreasure.png',
-        'iconaddon_pocketwatch.png': 'iconaddon_pocketwatchspencerslastbreath.png',
-        'iconaddon_carburetortuningguide.png': 'iconaddon_carburettortuningguide.png',
-        'iconaddon_prayerapple.png': 'iconaddon_blessedapple.png',
-        'iconaddon_bloodiedblackhood.png': 'iconaddon_bloodyblackhood.png',
-        'iconaddon_tvirussample.png': 'iconaddon_t-virussample.png',
-        'iconaddon_briansintestines.png': 'iconaddon_briansintestine.png',
-        'iconaddon_jacobsbabyshoes.png': 'iconaddon_matiasbabyshoes.png',
-        'iconaddon_iridescentvhstape.png': 'iconaddon_iridescentvideotape.png',
-        'iconaddon_vhscopy.png': 'iconaddon_videotapecopy.png',
-        'iconaddon_tilingblade.png': 'iconaddon_tillingblade.png',
-        'iconaddon_worrystones.png': 'iconaddon_worrystone.png',
-        'iconaddon_airfreshner.png': 'iconaddon_airfreshener.png',
-        'iconaddon_flaminghairspray.png': 'iconaddon_hairspraycandle.png',
-        'iconaddon_uroborusvirus.png': 'iconaddon_uroborosvirus.png',
-        'iconaddon_adivalente1.png': 'iconaddon_adivalenteissue1.png',
-        'iconaddon_highpowerfloodlight.png': 'iconaddon_high-powerfloodlight.png',
-        'iconaddon_highcurrentupgrade.png': 'iconaddon_high-currentupgrade.png',
-        'iconaddon_lowpowermode.png': 'iconaddon_low-powermode.png',
-        'iconaddon_randomizedstrobes.png': 'iconaddon_randomisedstrobes.png',
-        'iconaddon_infaredupgrade.png': 'iconaddon_infraredupgrade.png',
-        'iconaddon_ultrasonictrapspeaker.png': 'iconaddon_ultrasonicspeaker.png',
-        'iconaddon_overcharge.png': 'iconaddon_supercharge.png',
-        'iconaddon_spiritallseeing.png': 'iconaddon_allseeing-spirit.png',
-        'icons_addon_mementoblades.png': 'iconaddon_mementoblades.png',
-        'icons_addon_trickpouch.png': 'iconaddon_trickpouch.png',
-        'icons_addon_killingpartchords.png': 'iconaddon_killingpartchords.png',
-        'icons_addon_infernowires.png': 'iconaddon_infernowires.png',
-        'icons_addon_jiwoonsautograph.png': 'iconaddon_ji-woonsautograph.png',
-        'icons_addon_ontargetsingle.png': 'iconaddon_ontargetsingle.png',
-        'icons_addon_luckyblade.png': 'iconaddon_luckyblade.png',
-        'icons_addon_cagedheartshoes.png': 'iconaddon_cagedheartshoes.png',
-        'icons_addon_tequilamoonrock.png': 'iconaddon_tequilamoonrock.png',
-        'icons_addon_bloodyboa.png': 'iconaddon_bloodyboa.png',
-        'icons_addon_fizzspinsoda.png': 'iconaddon_fizz-spinsoda.png',
-        'icons_addon_waitingforyouwatch.png': 'iconaddon_waitingforyouwatch.png',
-        'icons_addon_ripperbrace.png': 'iconaddon_ripperbrace.png',
-        'icons_addon_yumismurder.png': 'iconaddon_melodiousmurder.png',
-        'icons_addon_diamondcufflinks.png': 'iconaddon_diamondcufflinks.png',
-        'icons_addon_edgeofrevivalalbum.png': 'iconaddon_edgeofrevivalalbum.png',
-        'icons_addon_trickblades.png': 'iconaddon_trickblades.png',
-        'icons_addon_cutthruusingle.png': 'iconaddon_cutthruusingle.png',
-        'icons_addon_deaththroescompilation.png': 'iconaddon_deaththroescompilation.png',
-        'icons_addon_iridescentphotocard.png': 'iconaddon_iridescentphotocard.png',
-        'iconaddon_threadedfilament.png': 'iconaddon_lowampfilament.png',
-        'iconaddon_brokenflashlightbulb.png': 'iconaddon_brokenbulb.png',
-        'iconaddon_tokengold.png': 'iconaddon_goldtoken.png',
-        'iconaddon_ropeyellow.png': 'iconaddon_yellowwire.png',
-        'iconaddon_blightedserum.png': 'iconaddon_blightserum.png',
-        'iconaddon_blightedsyringe.png': 'iconaddon_blightserum.png',
-        't_ui_iconiaddon_friendshipcharm.png': 'iconaddon_friendshipcharm.png',
-        'iconaddon_mudbaikrakaeug.png': 'iconaddon_blindwarrior-mud.png',
-        'iconaddon_bloodkrafabai.png': 'iconaddon_allseeing-blood.png',
-        'iconaddon_whitekuntintakkho.png': 'iconaddon_swifthunt-white.png',
-        'iconaddon_goldenegg.png': 'iconaddon_egggold.png',
-        't_ui_iconaddon_iridescentsoteriachip.png': 'iconaddon_iridescentsoteriachip.png',
-        'iconaddon_blondehair.png': 'iconaddon_blondhair.png',
-        'iconaddon_metalsaw.png': 'iconaddon_hacksaw.png'
-      },
-      Item: {
-        'iconitems_toolbox_anniversary2021.png': 'iconitems_anniversarytoolbox.png',
-        'iconitems_flashlight_anniversary2020.png': 'iconitems_anniversaryflashlight.png',
-        'iconitems_flashlight_anniversary2022.png': 'iconitems_masqueradeflashlight.png',
-        'iconitems_medkit_anniversary2020.png': 'iconitems_anniversarymedkit.png',
-        'iconitems_medkit_anniversary2022.png': 'iconitems_masquerademedkit.png',
-        'iconitems_toolbox_anniversary2022.png': 'iconitems_masqueradetoolbox.png',
-        'iconitems_partypopper.png': 'iconitems_thirdyearpartystarter.png',
-        't_ui_iconitems_crypticmap.png': 'iconitems_crypticmap.png',
-        'iconitems_bloodmap.png': 'iconitems_bloodsensemap.png',
-        'iconitems_toolboxlunar.png': 'iconitems_festivetoolbox.png',
-        't_ui_iconitems_artisansfogvial.png': 'iconitems_artisansfogvial.png',
-        't_ui_iconitems_apprenticesfogvial.png': 'iconitems_apprenticesfogvial.png',
-        't_ui_iconitems_vigosfogvial.png': 'iconitems_vigosfogvial.png',
-        'iconitems_limiteditemvaccine.png': 'iconitems_vaccine.png',
-        'iconitems_flashbanggrenade.png': 'iconitems_flashgrenade.png',
-        't_ui_iconitems_limitedjerrycan.png': 'iconitems_jerrycan.png',
-        'iconitems_limitedstabilizingspray.png': 'iconitems_firstaidspray.png',
-        'iconitems_limitedemp.png': 'iconitems_emp.png',
-        'iconitems_limitedrepairedmirror.png': 'iconitems_pocketmirror.png',
-        'iconitems_limitedlamentconfiguration.png': 'iconitems_lamentconfiguration.png'
-      },
-      Offering: {
-        'iconfavors_momentomoricypress.png': 'iconfavors_cypressmementomori.png',
-        'iconfavors_momentomoriebony.png': 'iconfavors_ebonymementomori.png',
-        'iconfavors_momentomoriivory.png': 'iconfavors_ivorymementomori.png',
-        'iconfavors_wardblack.png': 'iconfavors_blackward.png',
-        'iconfavors_wardwhite.png': 'iconfavors_whiteward.png',
-        'iconfavors_wardsacrificial.png': 'iconfavors_sacrificialward.png',
-        'iconfavors_macmillianledgerpage.png': 'iconfavors_macmillanledgerpage.png',
-        'iconfavors_macmilliansphalanxbone.png': 'iconfavors_macmillansphalanxbone.png',
-        'iconfavors_yamaokascrest.png': 'iconfavors_yamaokafamilycrest.png',
-        'iconfavors_crecentmoonbouquet.png': 'iconfavors_crescentmoonbouquet.png',
-        'iconfavors_plateshredded.png': 'iconfavors_shreddedplate.png',
-        'iconfavors_platevirginia.png': 'iconfavors_virginiaplate.png',
-        'iconfavors_redmoneypacket.png': 'iconfavors_redenvelope.png',
-        'iconfavors_arcanedowsingrod.png': 'iconfavors_arcanedousingrod.png',
-        'iconfavors_4thanniversary.png': 'iconfavors_ghastlygateau.png',
-        'iconsfavors_5thanniversary.png': 'iconfavors_sacrificialcake.png',
-        'iconsfavors_6thanniversary.png': 'iconfavors_frightfulflan.png',
-        'iconsfavors_7thanniversary.png': 'iconfavors_terrormisu.png',
-        'iconsfavors_8thanniversary.png': 'iconfavors_screechcobbler.png',
-        't_ui_iconsfavors_9thanniversary.png': 'iconfavors_frightfulflan.png',
-        'iconsfavors_rpdbadge.png': 'iconfavors_rpdbadge.png',
-        'iconsfavors_winter.png': 'iconfavors_mistletoes.png',
-        't_ui_iconsfavors_shroudofvanishing.png': 'iconfavors_vigosshroud.png',
-        'iconfavors_jarofsaltylips.png': 'iconfavors_vigosjarofsaltylips.png'
-      },
-      Survivor: {
-        's08_williambilloverbeck_portrait.png': 'S08_BillOverbeck_Portrait.png',
-        's12_detectivedavidtapp_portrait.png': 'S12_DavidTapp_Portrait.png',
-        's17_ashleyjwilliams_portrait.png': 'S17_AshWilliams_Portrait.png',
-        's18_steveharrington_portrait.png': 'S19_SteveHarrington_Portrait.png',
-        's19_nancywheeler_portrait.png': 'S18_NancyWheeler_Portrait.png',
-        's25_yunjinlee_portrait.png': 'S25_Yun-JinLee_Portrait.png',
-        's27_leonskennedy_portrait.png': 'S27_LeonScottKennedy_Portrait.png',
-        't_ui_s49_veeboonyasak_portrait.png': 'S49_VeeBoonyasak_Portrait.png',
-        's50_eleven_portrait.png': 'S50_Eleven_Portrait.png',
-        's51_dustinhenderson_portrait.png': 'S51_DustinHenderson_Portrait.png'
-      },
-      Perk: {
-        'iconperks_awakenedawarenesss.png': 'IconPerks_Awakened Awareness.png',
-        'iconperks_awakenedawareness.png': 'IconPerks_Awakened Awareness.png',
-        'iconperks_bbqandchili.png': 'IconPerks_barbecueAndChilli.png',
-        'iconperks_boondestroyer.png': 'IconPerks_shatteredHope.png',
-        'iconperks_cruelconfinement.png': 'IconPerks_cruelLimits.png',
-        'iconperks_deadmanswitch.png': 'IconPerks_deadMansSwitch.png',
-        'iconperks_flipflop.png': 'IconPerks_flip-Flop.png',
-        'iconperks_franklinsloss.png': 'IconPerks_franklinsDemise.png',
-        'iconperks_generatorovercharge.png': 'IconPerks_overcharge.png',
-        'iconperks_hangmanstrick.png': 'IconPerks_scourgeHookHangmansTrick.png',
-        'iconperks_devourhope.png': 'IconPerks_hexDevourHope.png',
-        'iconperks_hauntedground.png': 'IconPerks_hexHauntedGround.png',
-        'iconperks_huntresslullaby.png': 'IconPerks_hexHuntressLullaby.png',
-        'iconperks_ruin.png': 'IconPerks_hexRuin.png',
-        'iconperks_thethirdseal.png': 'IconPerks_hexTheThirdSeal.png',
-        'iconperks_thrillofthehunt.png': 'IconPerks_hexThrillOfTheHunt.png',
-        'iconperks_hexbloodfavor.png': 'IconPerks_hexBloodFavour.png',
-        'iconperks_coupdegrace.png': 'IconPerks_coupDeGrâce.png',
-        't_iconperks_painresonance.png': 'IconPerks_scourgeHookPainResonance.png',
-        'iconperks_painresonance.png': 'IconPerks_scourgeHookPainResonance.png',
-        'iconperks_floodofrage.png': 'IconPerks_scourgeHookFloodsOfRage.png',
-        'iconperks_darknessrevelated.png': 'IconPerks_darknessRevealed.png',
-        'iconperks_selfaware.png': 'IconPerks_machineLearning.png',
-        'iconperks_twocanplay.png': 'IconPerks_hexTwoCanPlay.png',
-        'iconperks_friendstilltheend.png': 'IconPerks_friendsTilTheEnd.png',
-        'iconperks_monstrousshrine.png': 'IconPerks_scourgeHookMonstrousShrine.png',
-        'iconperks_nooneescapesdeath.png': 'IconPerks_hexNoOneEscapesDeath.png',
-        'iconperks_openhanded.png': 'IconPerks_open-Handed.png',
-        'iconperks_hatred.png': 'IconPerks_rancor.png',
-        'iconperks_darktheory.png': 'IconPerks_boonDarkTheory.png',
-        'iconperks_vittoriosgambit.png': 'IconPerks_quickGambit.png',
-        'iconperks_lightfooted.png': 'IconPerks_light-Footed.png',
-        'iconsperks_illumination.png': 'IconPerks_boonIllumination.png',
-        'iconperks_selfcare.png': 'IconPerks_self-Care.png',
-        'iconperks_thatanophobia.png': 'IconPerks_thanatophobia.png'
-      },
-      Map: {
-        'iconmap_apl_level01.png': 'IconMap_Apl_Level02.png',
-        'iconmap_apl_level02.png': 'IconMap_Apl_Level02.png',
-        't_ui_iconmap_apl_shack.png': 'IconMap_Apl_Shack.png',
-        'iconmap_asy_asylum.png': 'IconMap_Asy_Asylum.png',
-        'iconmap_asy_chapel.png': 'IconMap_Asy_Chapel.png',
-        'iconmap_brl_mahouse.png': 'IconMap_Brl_MadHouse.png',
-        'iconmap_brl_madhouse.png': 'IconMap_Brl_MadHouse.png',
-        'iconmap_brl_temple.png': 'IconMap_Brl_Temple.png',
-        'iconmap_ecl_level01.png': 'IconMap_Ecl_Eclipselevel01.png',
-        'iconmap_orion_level01.png': 'IconMap_Ecl_Orionlevel01.png',
-        'iconmap_eng_elmstreet.png': 'IconMap_Eng_Elmstreet.png',
-        'iconmap_eng_elmstreet02.png': 'IconMap_Eng_ElmstreetII.png',
-        'iconmap_eng_elmstreet03.png': 'IconMap_Eng_ElmstreetIII.png',
-        'iconmap_eng_elmstreet04.png': 'IconMap_Eng_ElmstreetIV.png',
-        'iconmap_eng_elmstreet05.png': 'IconMap_Eng_ElmstreetV.png',
-        'iconmap_fin_thegame.png': 'IconMap_Fin_TheGame.png',
-        'iconmap_frm_barn.png': 'IconMap_Frm_Barn.png',
-        'iconmap_frm_cornfield.png': 'IconMap_Frm_Cornfield.png',
-        'iconmap_frm_farmhouse.png': 'IconMap_Frm_Farmhouse.png',
-        'iconmap_frm_silo.png': 'IconMap_Frm_Silo.png',
-        'iconmap_frm_slaughterhouse.png': 'IconMap_Frm_Slaughterhouse.png',
-        'iconmap_glo_level01.png': 'IconMap_Glo_Level01.png',
-        'iconmap_hos_treatment.png': 'IconMap_Hos_Treatment.png',
-        'iconmap_hti_manor1.png': 'IconMap_Hti_Manor.png',
-        'iconmap_hti_manor2.png': 'IconMap_Hti_Manor.png',
-        'iconmap_hti_shrine1.png': 'IconMap_Hti_Shrine.png',
-        'iconmap_hti_shrine2.png': 'IconMap_Hti_Shrine.png',
-        'iconmap_ice_level01.png': 'IconMap_Ice_Level01.png',
-        'iconmap_ind_coaltower1.png': 'IconMap_Ind_CoalTower.png',
-        'iconmap_ind_coaltower2.png': 'IconMap_Ind_CoalTower.png',
-        'iconmap_ind_forest1.png': 'IconMap_Ind_Forest.png',
-        'iconmap_ind_forest2.png': 'IconMap_Ind_Forest.png',
-        'iconmap_ind_foundry1.png': 'IconMap_Ind_Foundry.png',
-        'iconmap_ind_foundry2.png': 'IconMap_Ind_Foundry.png',
-        'iconmap_ind_mine1.png': 'IconMap_Ind_Mine.png',
-        'iconmap_ind_mine2.png': 'IconMap_Ind_Mine.png',
-        'iconmap_ind_storehouse1.png': 'IconMap_Ind_Storehouse.png',
-        'iconmap_ind_storehouse2.png': 'IconMap_Ind_Storehouse.png',
-        'iconmap_ion_level01.png': 'IconMap_Ion_Ionlevel01.png',
-        'iconmap_jnk_garage.png': 'IconMap_Jnk_Garage.png',
-        'iconmap_jnk_gasstation.png': 'IconMap_Jnk_GasStation.png',
-        'iconmap_jnk_lodge.png': 'IconMap_Jnk_Lodge.png',
-        'iconmap_jnk_office.png': 'IconMap_Jnk_Office.png',
-        'iconmap_jnk_scrapyard.png': 'IconMap_Jnk_Scrapyard.png',
-        'iconmap_kny_cottage1.png': 'IconMap_Kny_Cottage.png',
-        'iconmap_kny_cottage2.png': 'IconMap_Kny_Cottage.png',
-        'iconmap_kny_cottage3.png': 'IconMap_Kny_Cottage.png',
-        'iconmap_meteor_level01.png': 'IconMap_Meteor_Meteorlevel01.png',
-        'iconmap_qat_lab.png': 'IconMap_Qat_Laboratory.png',
-        'iconmap_qtm_level01.png': 'IconMap_Qtm_Quantumlevel01.png',
-        'iconmap_qtm_level02.png': 'IconMap_Qtm_Churroslevel01.png',
-        'iconmap_sub_street.png': 'IconMap_Sub_Street.png',
-        'iconmap_swp_grimpantry.png': 'IconMap_Swp_GrimPantry.png',
-        'iconmap_swp_palerose.png': 'IconMap_Swp_ThePaleRose.png',
-        'iconmap_ukr_saloon.png': 'IconMap_Ukr_Saloon.png',
-        'iconmap_uba_level01.png': 'IconMap_Uba_Umbralevel01.png',
-        'iconmap_wal_level01.png': 'IconMap_Wal_Level01.png',
-        'iconmap_wrm_level01.png': 'IconMap_Uba_Wormholelevel01.png'
+    const toLocalImageSource = (url) => {
+      if (!url) return null;
+      const normalized = url.replace(/\\/g, '/').replace(/^\.\//, '');
+      if (normalized.startsWith('dbd_images/') || normalized.startsWith('assets/')) {
+        return `./${normalized}`;
       }
-    };
-    const buildPerkCandidates = (withExt) => {
-      const variants = new Set();
-      const addPrefixVariants = (val) => {
-        if (!val) return;
-        variants.add(val);
-        variants.add(val.replace(/^iconperks/i, 'IconPerks'));
-        variants.add(val.replace(/^iconsperks/i, 'IconPerks'));
-        variants.add(val.replace(/^t_ui_iconperks/i, 'T_UI_iconPerks'));
-        variants.add(val.replace(/^t_ui_iconsperks/i, 'T_UI_iconPerks'));
-      };
-      const addAll = (val) => {
-        addPrefixVariants(val);
-        if (val) addPrefixVariants(val[0].toLowerCase() + val.slice(1));
-        if (val) {
-          const dot = val.lastIndexOf('.');
-          const name = dot >= 0 ? val.slice(0, dot) : val;
-          const ext = dot >= 0 ? val.slice(dot) : '';
-          const underscore = name.lastIndexOf('_');
-          const loweredTail = underscore >= 0
-            ? `${name.slice(0, underscore + 1)}${name.slice(underscore + 1, underscore + 2).toLowerCase()}${name.slice(underscore + 2)}`
-            : `${name.slice(0, 1).toLowerCase()}${name.slice(1)}`;
-          addPrefixVariants(loweredTail + ext);
-        }
-        addPrefixVariants(val?.toLowerCase());
-      };
-      const stripExt = (s) => s.replace(/\\.[^/.]+$/, '');
-      addAll(withExt);
-      const withoutTUI = withExt.replace(/^T_UI_/i, '');
-      addAll(withoutTUI);
-      const withoutT = withExt.replace(/^T_/i, '');
-      addAll(withoutT);
-      const baseName = stripExt(withoutTUI.replace(/^T_/i, ''));
-      const hyphenated = baseName.replace(/([a-z])([A-Z])/g, '$1-$2') + '.png';
-      addAll(hyphenated);
-      return Array.from(variants);
-    };
-    const buildMapCandidates = (withExt) => {
-      const variants = new Set();
-      const addVariant = (val) => {
-        if (!val) return;
-        variants.add(val);
-      };
-      addVariant(withExt);
-      const withoutTUI = withExt.replace(/^T_UI_/i, '');
-      addVariant(withoutTUI);
-      const capitalized = withoutTUI.replace(/^iconmap/i, 'IconMap');
-      addVariant(capitalized);
-      addVariant(withExt.toLowerCase());
-      const match = withoutTUI.match(/iconmap_([a-z]+)_/i);
-      if (match) {
-        const realmCode = match[1];
-        addVariant(`IconMap_${realmCode}_Level01.png`);
-        addVariant(`IconMap_${realmCode}_Level02.png`);
-        addVariant(`IconMap_${realmCode}level01.png`);
-      }
-      const mapAliases = {
-        'iconmap_brl_mahouse.png': 'IconMap_Brl_MadHouse.png',
-        'iconmap_ecl_level01.png': 'IconMap_Ecl_Eclipselevel01.png',
-        'iconmap_orion_level01.png': 'IconMap_Ecl_Orionlevel01.png',
-        'iconmap_eng_elmstreet.png': 'IconMap_Eng_Elmstreet.png',
-        'iconmap_ind_forest2.png': 'IconMap_Ind_Forest.png',
-        'iconmap_glo_level01.png': 'IconMap_Glo_Level01.png',
-        'iconmap_apl_level01.png': 'IconMap_Apl_Level02.png',
-      };
-      const lowerKey = withoutTUI.toLowerCase();
-      if (mapAliases[lowerKey]) {
-        addVariant(mapAliases[lowerKey]);
-      }
-      return Array.from(variants);
+      return null;
     };
     const AssetFrame = ({ type, imageUrl, fallbackIcon, size = 'normal' }) => {
       const [broken, setBroken] = useState(false);
       const [loaded, setLoaded] = useState(false);
       const [sourceIndex, setSourceIndex] = useState(0);
       const defaultImg = DEFAULT_IMAGES[type];
-      const buildUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        if (url.startsWith('dbd_images') || url.startsWith('./dbd_images')) return url;
-        return `${CDN_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
-      };
-      const localSources = useMemo(() => {
-        const folderByType = {
-          Killer: 'killers',
-          Survivor: 'survivors',
-          Perk: 'perks',
-          Map: 'maps',
-          Addon: 'addons',
-          Item: 'items',
-          Offering: 'offerings'
-        };
-        const folder = folderByType[type];
-        if (!folder || !imageUrl) return [];
-        const normalized = imageUrl.replace(/\\/g, '/');
-        const variants = new Set();
-        if (normalized.includes('dbd_images/')) {
-          variants.add(normalized.startsWith('.') ? normalized : `./${normalized}`);
-        }
-        const baseName = normalized.split('/').pop()?.split('?')[0];
-        if (baseName) {
-          const withExt = baseName.includes('.') ? baseName : `${baseName}.png`;
-          const aliasKey = withExt.toLowerCase();
-          const aliasName = IMAGE_ALIASES[type]?.[aliasKey];
-          let candidateNames = [];
-          if (aliasName) candidateNames.push(aliasName);
-          if (type === 'Perk') {
-            candidateNames.push(...buildPerkCandidates(withExt));
-          } else if (type === 'Map') {
-            const mapCandidates = buildMapCandidates(withExt);
-            candidateNames.push(...mapCandidates);
-          } else if (type === 'Addon' || type === 'Item' || type === 'Offering') {
-            candidateNames.push(withExt);
-            candidateNames.push(withExt.toLowerCase());
-            const justName = withExt.split('/').pop();
-            candidateNames.push(justName);
-            candidateNames.push(justName.toLowerCase());
-            const lowerJustName = justName.toLowerCase();
-            if (lowerJustName.startsWith('t_ui_')) {
-              const withoutPrefix = lowerJustName.replace('t_ui_', '');
-              candidateNames.push(withoutPrefix);
-            }
-          } else {
-            candidateNames.push(withExt);
-            candidateNames.push(withExt.toLowerCase());
-            const nameMatch = withExt.match(/_(The[A-Za-z]+)_/);
-            if (nameMatch && (type === 'Killer' || type === 'Survivor')) {
-              const charName = nameMatch[1].toLowerCase();
-              for (let i = 1; i <= 50; i++) {
-                const prefix = type === 'Killer' ? 'k' : 's';
-                const num = i.toString().padStart(2, '0');
-                candidateNames.push(`${prefix}${num}_${charName}_portrait.png`);
-              }
-            }
-          }
-          candidateNames.forEach((name) => {
-            if (!name) return;
-            const rooted = name.startsWith('./dbd_images/') || name.startsWith('dbd_images/');
-            variants.add(rooted ? name : `${LOCAL_IMAGE_ROOT}/${folder}/${name}`);
-          });
-        }
-        return Array.from(variants);
-      }, [type, imageUrl]);
       const sources = useMemo(() => {
         const entries = [];
         const add = (val) => { if (val && !entries.includes(val)) entries.push(val); };
-        localSources.forEach(add);
-        add(buildUrl(imageUrl));
-        add(defaultImg);
+        add(toLocalImageSource(imageUrl));
+        add(toLocalImageSource(defaultImg));
         return entries;
-      }, [localSources, imageUrl, defaultImg]);
+      }, [imageUrl, defaultImg]);
       useEffect(() => {
         setBroken(false);
         setLoaded(false);
@@ -2799,7 +2383,7 @@
       const baseClasses = size === 'fill'
         ? `relative flex items-center justify-center overflow-hidden ${containerClass}`
         : `relative flex items-center justify-center bg-zinc-950/50 border border-white/10 overflow-hidden shrink-0 ${containerClass}`;
-      const objectFit = (type === 'Addon' || type === 'Item' || type === 'Offering') ? 'object-contain' : 'object-cover';
+      const objectFit = (type === 'Addon' || type === 'Item' || type === 'Offering' || type === 'Power' || type === 'GameIcon') ? 'object-contain' : 'object-cover';
       return (
         <div className={baseClasses}>
           {/* Skeleton shimmer while loading */}
@@ -3395,48 +2979,25 @@
             ))}
           </div>
           {/* Item (Survivor Only) */}
-          {role === 'Survivor' && result.item && (() => {
-            const ITEM_IMAGE_FIXES = {
-              'Anniversary Toolbox': 'iconitems_anniversarytoolbox.png',
-              'Anniversary Flashlight': 'iconitems_anniversaryflashlight.png',
-              'Anniversary Med-Kit': 'iconitems_anniversarymedkit.png',
-              'Anniversary Med-kit': 'iconitems_anniversarymedkit.png',
-              'Masquerade Flashlight': 'iconitems_masqueradeflashlight.png',
-              'Masquerade Med-Kit': 'iconitems_masquerademedkit.png',
-              'Masquerade Toolbox': 'iconitems_masqueradetoolbox.png',
-              'Third Year Party Starter': 'iconitems_thirdyearpartystarter.png',
-              'Winter Party Starter': 'iconitems_winterpartystarter.png',
-              'Cryptic Map': 'iconitems_crypticmap.png',
-              'Festive Toolbox': 'iconitems_festivetoolbox.png',
-              'Bloodsense Map': 'iconitems_bloodsensemap.png',
-              "Apprentice's Fog Vial": 'iconitems_apprenticesfogvial.png',
-              "Artisan's Fog Vial": 'iconitems_artisansfogvial.png',
-              "Vigo's Fog Vial": 'iconitems_vigosfogvial.png',
-              "Will O' Wisp": 'iconitems_willowisp.png'
-            };
-            const baseFilename = ITEM_IMAGE_FIXES[result.item.name] ||
-              (result.item.image ? result.item.image.split('/').pop().toLowerCase() + '.png' : null);
-            const itemImg = baseFilename ? './dbd_images/items/' + baseFilename : null;
-            return (
-              <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Item</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
-                    {itemImg ? (
-                      <img src={itemImg} alt={result.item.name} className="w-10 h-10 object-contain" onError={e => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }} />
-                    ) : null}
-                    <div className={`items-center justify-center ${itemImg ? 'hidden' : 'flex'}`}>
-                      <Icons.Package width={20} height={20} className="text-white/60" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-white font-bold">{result.item.name}</p>
-                    <p className="text-xs text-zinc-500">{result.item.itemType}</p>
-                  </div>
+          {role === 'Survivor' && result.item && (
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Item</p>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                  <AssetFrame
+                    type="Item"
+                    size="fill"
+                    imageUrl={result.item.image}
+                    fallbackIcon={<Icons.Package width={20} height={20} className="text-white/60" />}
+                  />
+                </div>
+                <div>
+                  <p className="text-white font-bold">{result.item.name}</p>
+                  <p className="text-xs text-zinc-500">{result.item.itemType}</p>
                 </div>
               </div>
-            );
-          })()}
+            </div>
+          )}
           {/* Addons */}
           {(result.addons[0] || result.addons[1]) && (
             <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10">
@@ -4525,7 +4086,12 @@
                     return wrapBest(
                       <div key={item.id || item.name} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                          {item.icon ? <img src={item.icon} alt={item.name} className="w-8 h-8 object-contain" /> : <Icons.AlertCircle width={16} height={16} className="text-white/40" />}
+                          <AssetFrame
+                            type="GameIcon"
+                            size="fill"
+                            imageUrl={item.icon}
+                            fallbackIcon={<Icons.AlertCircle width={16} height={16} className="text-white/40" />}
+                          />
                         </div>
                         <div className="flex-1">
                           <p className="text-white font-bold text-sm">{item.name}</p>
@@ -5420,7 +4986,7 @@
       const cloneTemplate = (tpl) => {
         const now = new Date().toISOString();
         const normalizedPerks = (tpl.perks || []).map(name => {
-          const found = perks.find(p => p.name === name);
+          const found = perks.find(p => perkMatchesName(p, name));
           return found ? { id: found.id, name: found.name } : { id: uuid(), name };
         });
         setEditing({
@@ -5582,720 +5148,720 @@
       { title: "Totem Hunter", role: "Survivor", perks: ["Inner Strength", "Hardened", "Counterforce", "Detective's Hunch"], note: "Cleanse fast, find the next totem, and self-heal from lockers." },
       { title: "Treasure Hunter", role: "Survivor", perks: ["Ace in the Hole", "Moment of Glory", "Appraisal", "Plunderer's Instinct"], note: "Loot chests for stacked items and add-ons to carry the trial." },
       { title: "Locker", role: "Survivor", perks: ["Dance With Me", "Head On", "Inner Strength", "Quick and Quiet"], note: "Stealth and stuns built around lockers and silent rush actions." },
-      { title: "Altruism", role: "Survivor", perks: ["Kindred", "Borrowed Time", "Shoulder the Burden", "We'll Make It"], note: "Prioritize safe unhooks and fast heals to keep the team alive." },
+      { title: "Altruism", role: "Survivor", perks: ["Kindred", "Borrowed Time", "Shoulder The Burden", "We'll Make It"], note: "Prioritize safe unhooks and fast heals to keep the team alive." },
       { title: "Aura Reading", role: "Survivor", perks: ["Kindred", "Eyes of Belmont", "Open-Handed", "Empathy"], note: "Keep tabs on killer and teammates with extended aura reads." },
       { title: "Stun", role: "Survivor", perks: ["Blast Mine", "Exultation", "Any Means Necessary", "Head On"], note: "Chain stuns with pallets, gens, and lockers to punish chases." },
       { title: "Non-Teachable", role: "Survivor", perks: ["Deja Vu", "Kindred", "Hope", "We'll Make It"], note: "Base-kit friendly info and speed for brand-new players." },
       { title: "Beginner", role: "Survivor", perks: ["Windows of Opportunity", "Overcome", "Kindred", "Deja Vu"], note: "Learn loops and gen spacing with vision and a forgiving exhaustion perk." },
       { title: "Self-Heal", role: "Survivor", perks: ["Strength in Shadows", "Botany Knowledge", "Bond", "Resurgence"], note: "Reset quickly and coordinate body blocks after basement or hooks." },
-      { title: "Anti-Slug", role: "Survivor", perks: ["Unbreakable", "Sprint Burst", "We're Gonna Live Forever", "Decisive Strike"], note: "Recover and pick up downed teammates fast; punish slugging." },
+      { title: "Anti-Slug", role: "Survivor", perks: ["Unbreakable", "Sprint Burst", "We're Gonna Live Forever", "Will To Live"], note: "Recover and pick up downed teammates fast; punish slugging." },
       { title: "Endgame", role: "Survivor", perks: ["Hope", "Reassurance", "Adrenaline", "Sprint Burst"], note: "Extend hook timers, heal on gates, and outrun camping in collapse." },
-      { title: "Anti-Tunnel", role: "Survivor", perks: ["Dead Hard", "Off The Record", "Decisive Strike", "Unbreakable"], note: "Make tunneling inefficient with endurance, skill checks, and recoveries." },
+      { title: "Anti-Tunnel", role: "Survivor", perks: ["Dead Hard", "Off the Record", "Will To Live", "Unbreakable"], note: "Make tunneling inefficient with endurance, skill checks, and recoveries." },
       { title: "Runner", role: "Survivor", perks: ["Sprint Burst", "Finesse", "Windows of Opportunity", "Blood Rush"], note: "High-mobility chase kit with vault boosts and exhaustion refresh." },
       { title: "Generator", role: "Survivor", perks: ["Quick Gambit", "Prove Thyself", "Deja Vu", "Sprint Burst"], note: "Teamwide gen speedups plus personal sprint for chase pressure." },
       { title: "Wallhacks", role: "Survivor", perks: ["Eyes of Belmont", "Dark Sense", "Poised", "Wicked"], note: "Long aura reads to track killer rotations; basement escape insurance." }
     ];
     const GLOSSARY = [
-      {
+    {
         "section": "Movement & Chase",
         "items": [
-          {
-            "term": "Looping",
-            "def": "Running a structure to waste the Killer's time while conserving pallets."
-          },
-          {
-            "term": "Pallet Vacuum",
-            "def": "Old mechanic where dropping a pallet teleported Survivors through it; removed to make pallets riskier."
-          },
-          {
-            "term": "Checkspot",
-            "def": "Safe position at a loop to watch the Killer's red stain without committing."
-          },
-          {
-            "term": "Shift W / Holding W",
-            "def": "Abandoning a loop to run straight to the next tile for distance."
-          },
-          {
-            "term": "Greeding",
-            "def": "Choosing not to drop a pallet and risking a hit to save resources."
-          },
-          {
-            "term": "Pre-dropping",
-            "def": "Dropping a pallet early for guaranteed safety but poor efficiency."
-          },
-          {
-            "term": "360 / Spin",
-            "def": "Tight spin to break auto-aim during a lunge."
-          },
-          {
-            "term": "FOV Tech",
-            "def": "Abusing the Killer's limited vision by moving into their blind spot up close."
-          },
-          {
-            "term": "Window Tech",
-            "def": "Passing through the Killer's collision while they vault a window to lose them."
-          },
-          {
-            "term": "CJ Tech",
-            "def": "Vaulting a pallet as the Killer breaks it to force a pickup prompt and set up a blind."
-          },
-          {
-            "term": "Dumb Tech",
-            "def": "Vaulting back into the Killer immediately after a pallet stun to bait a swing."
-          },
-          {
-            "term": "Juke",
-            "def": "Sudden direction change to bait a Killer miss."
-          },
-          {
-            "term": "Locker Tech",
-            "def": "Using a locker to dodge/deny a hit or force a weird interaction."
-          },
-          {
-            "term": "Chase",
-            "def": "Killer actively pursuing a Survivor."
-          },
-          {
-            "term": "Tile",
-            "def": "A map 'piece' (pallet+window layout) that supports a loop."
-          },
-          {
-            "term": "Double Back",
-            "def": "Pretend to leave a loop, then immediately return."
-          },
-          {
-            "term": "Commit / Drop Chase",
-            "def": "Decide to stick with a chase or abandon it."
-          },
-          {
-            "term": "Respect the Pallet",
-            "def": "Killer pauses expecting pallet drop; survivor doesn't drop."
-          },
-          {
-            "term": "Eat the Pallet",
-            "def": "Killer takes the stun to maintain pressure."
-          },
-          {
-            "term": "Break Pallet",
-            "def": "Kick/destroy a dropped pallet."
-          },
-          {
-            "term": "Bloodlust",
-            "def": "Speed boost killer gains in extended chase."
-          },
-          {
-            "term": "Red Stain",
-            "def": "The red light in front of killer; used in mindgames."
-          },
-          {
-            "term": "Moonwalk",
-            "def": "Walk backwards to hide red stain while approaching."
-          },
-          {
-            "term": "LOS",
-            "def": "Line of sight."
-          }
+            {
+                "term": "Looping",
+                "def": "Running a structure to waste the Killer's time while conserving pallets."
+            },
+            {
+                "term": "Pallet Vacuum",
+                "def": "Old mechanic where dropping a pallet teleported Survivors through it; removed to make pallets riskier."
+            },
+            {
+                "term": "Checkspot",
+                "def": "Safe position at a loop to watch the Killer's red stain without committing."
+            },
+            {
+                "term": "Shift W / Holding W",
+                "def": "Abandoning a loop to run straight to the next tile for distance."
+            },
+            {
+                "term": "Greeding",
+                "def": "Choosing not to drop a pallet and risking a hit to save resources."
+            },
+            {
+                "term": "Pre-dropping",
+                "def": "Dropping a pallet early for guaranteed safety but poor efficiency."
+            },
+            {
+                "term": "360 / Spin",
+                "def": "Tight spin to break auto-aim during a lunge."
+            },
+            {
+                "term": "FOV Tech",
+                "def": "Abusing the Killer's limited vision by moving into their blind spot up close."
+            },
+            {
+                "term": "Window Tech",
+                "def": "Passing through the Killer's collision while they vault a window to lose them."
+            },
+            {
+                "term": "CJ Tech",
+                "def": "Vaulting a pallet as the Killer breaks it to force a pickup prompt and set up a blind."
+            },
+            {
+                "term": "Dumb Tech",
+                "def": "Vaulting back into the Killer immediately after a pallet stun to bait a swing."
+            },
+            {
+                "term": "Juke",
+                "def": "Sudden direction change to bait a Killer miss."
+            },
+            {
+                "term": "Locker Tech",
+                "def": "Using a locker to dodge/deny a hit or force a weird interaction."
+            },
+            {
+                "term": "Chase",
+                "def": "Killer actively pursuing a Survivor."
+            },
+            {
+                "term": "Tile",
+                "def": "A map 'piece' (pallet+window layout) that supports a loop."
+            },
+            {
+                "term": "Double Back",
+                "def": "Pretend to leave a loop, then immediately return."
+            },
+            {
+                "term": "Commit / Drop Chase",
+                "def": "Decide to stick with a chase or abandon it."
+            },
+            {
+                "term": "Respect the Pallet",
+                "def": "Killer pauses expecting pallet drop; survivor doesn't drop."
+            },
+            {
+                "term": "Eat the Pallet",
+                "def": "Killer takes the stun to maintain pressure."
+            },
+            {
+                "term": "Break Pallet",
+                "def": "Kick/destroy a dropped pallet."
+            },
+            {
+                "term": "Bloodlust",
+                "def": "Speed boost killer gains in extended chase."
+            },
+            {
+                "term": "Red Stain",
+                "def": "The red light in front of killer; used in mindgames."
+            },
+            {
+                "term": "Moonwalk",
+                "def": "Walk backwards to hide red stain while approaching."
+            },
+            {
+                "term": "LOS",
+                "def": "Line of sight."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Map Structures & Topography",
         "items": [
-          {
-            "term": "Shack / Killer Shack",
-            "def": "Universal landmark with a strong window and God Pallet."
-          },
-          {
-            "term": "Main / Main Building",
-            "def": "Central unique structure with strong windows or loops."
-          },
-          {
-            "term": "Jungle Gym / Maze Tile",
-            "def": "Complex wall tiles like T-L, 4-Lane, Long Wall with windows/pallets."
-          },
-          {
-            "term": "T-L Wall",
-            "def": "Maze tile shaped like a T and L; two windows, no pallet."
-          },
-          {
-            "term": "4-Lane / Long Wall",
-            "def": "Parallel long walls with a pallet; vision-blocking maze tile."
-          },
-          {
-            "term": "Cow Tree",
-            "def": "Coldwind landmark with a safe circular loop around a hanging carcass."
-          },
-          {
-            "term": "God Pallet",
-            "def": "Pallet that guarantees safety; Killer must break it."
-          },
-          {
-            "term": "Unsafe Pallet",
-            "def": "Pallet that can be mind-gamed or hit through; offers little safety."
-          },
-          {
-            "term": "Filler Tile",
-            "def": "Generic small loops filling space between landmarks; RNG quality."
-          },
-          {
-            "term": "Comp Corner",
-            "def": "Corner with no hooks/resources; used to deny hooks."
-          },
-          {
-            "term": "Dead Zone",
-            "def": "Area where pallets/walls are gone, making chases unwinnable for Survivors."
-          },
-          {
-            "term": "House of Pain",
-            "def": "House variant with an extremely strong loop/basement setup."
-          },
-          {
-            "term": "3-Gen",
-            "def": "Three close generators controlled by the Killer to stall the match."
-          }
+            {
+                "term": "Shack / Killer Shack",
+                "def": "Universal landmark with a strong window and God Pallet."
+            },
+            {
+                "term": "Main / Main Building",
+                "def": "Central unique structure with strong windows or loops."
+            },
+            {
+                "term": "Jungle Gym / Maze Tile",
+                "def": "Complex wall tiles like T-L, 4-Lane, Long Wall with windows/pallets."
+            },
+            {
+                "term": "T-L Wall",
+                "def": "Maze tile shaped like a T and L; two windows, no pallet."
+            },
+            {
+                "term": "4-Lane / Long Wall",
+                "def": "Parallel long walls with a pallet; vision-blocking maze tile."
+            },
+            {
+                "term": "Cow Tree",
+                "def": "Coldwind landmark with a safe circular loop around a hanging carcass."
+            },
+            {
+                "term": "God Pallet",
+                "def": "Pallet that guarantees safety; Killer must break it."
+            },
+            {
+                "term": "Unsafe Pallet",
+                "def": "Pallet that can be mind-gamed or hit through; offers little safety."
+            },
+            {
+                "term": "Filler Tile",
+                "def": "Generic small loops filling space between landmarks; RNG quality."
+            },
+            {
+                "term": "Comp Corner",
+                "def": "Corner with no hooks/resources; used to deny hooks."
+            },
+            {
+                "term": "Dead Zone",
+                "def": "Area where pallets/walls are gone, making chases unwinnable for Survivors."
+            },
+            {
+                "term": "House of Pain",
+                "def": "House variant with an extremely strong loop/basement setup."
+            },
+            {
+                "term": "3-Gen",
+                "def": "Three close generators controlled by the Killer to stall the match."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Generators & Objectives",
         "items": [
-          {
-            "term": "Gen",
-            "def": "Generator; the main survivor objective."
-          },
-          {
-            "term": "Gen Pressure",
-            "def": "Killer's ability to stop gens getting done."
-          },
-          {
-            "term": "Split Gens",
-            "def": "Survivors intentionally complete gens far apart to avoid a 3-gen."
-          },
-          {
-            "term": "Tap",
-            "def": "Touching a gen briefly to stop regression or check progress."
-          },
-          {
-            "term": "99 a Gen",
-            "def": "Bring a gen to ~99% and leave it to pop later for timing."
-          },
-          {
-            "term": "Pop (Gen)",
-            "def": "Finish a generator; 'pop this gen'."
-          },
-          {
-            "term": "Regression",
-            "def": "Gens losing progress from kick or perk effects."
-          },
-          {
-            "term": "Kick",
-            "def": "Killer damaging a gen to start regression and trigger perks."
-          }
+            {
+                "term": "Gen",
+                "def": "Generator; the main survivor objective."
+            },
+            {
+                "term": "Gen Pressure",
+                "def": "Killer's ability to stop gens getting done."
+            },
+            {
+                "term": "Split Gens",
+                "def": "Survivors intentionally complete gens far apart to avoid a 3-gen."
+            },
+            {
+                "term": "Tap",
+                "def": "Touching a gen briefly to stop regression or check progress."
+            },
+            {
+                "term": "99 a Gen",
+                "def": "Bring a gen to ~99% and leave it to pop later for timing."
+            },
+            {
+                "term": "Pop (Gen)",
+                "def": "Finish a generator; 'pop this gen'."
+            },
+            {
+                "term": "Regression",
+                "def": "Gens losing progress from kick or perk effects."
+            },
+            {
+                "term": "Kick",
+                "def": "Killer damaging a gen to start regression and trigger perks."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Killer Mechanics & Techs",
         "items": [
-          {
-            "term": "Hug Tech",
-            "def": "Sliding along collision during a dash to turn tightly instead of bumping."
-          },
-          {
-            "term": "U-Bend / Moonbound",
-            "def": "Wesker dash manipulation to curve or reverse direction."
-          },
-          {
-            "term": "Flick / 180",
-            "def": "Rapid camera turn at dash end to hit around corners."
-          },
-          {
-            "term": "Curve",
-            "def": "Hillbilly chainsaw drift using early high turn rate to round walls."
-          },
-          {
-            "term": "Bump Logic",
-            "def": "Choosing bump targets to set up the next Blight rush angle."
-          },
-          {
-            "term": "Mind Game",
-            "def": "Feigning direction (red stain, moonwalk) to trick Survivors into a hit."
-          },
-          {
-            "term": "Zoning",
-            "def": "Forcing Survivor movement with power/threat to drive them into danger."
-          },
-          {
-            "term": "Proxy Camp",
-            "def": "Guarding a hooked Survivor from nearby positions to intercept rescues."
-          },
-          {
-            "term": "Slugging",
-            "def": "Leaving Survivors in dying state to apply pressure or deny resets."
-          },
-          {
-            "term": "Tunneling",
-            "def": "Focusing one Survivor to remove them early and create a 3v1."
-          },
-          {
-            "term": "Camping",
-            "def": "Staying near hook to secure a kill or deny rescue."
-          },
-          {
-            "term": "Facecamp",
-            "def": "Standing right in front of hook; most extreme form of camping."
-          },
-          {
-            "term": "Hard Tunnel",
-            "def": "Go straight back to the unhooked survivor ASAP."
-          },
-          {
-            "term": "Soft Tunnel",
-            "def": "Prioritise the unhooked, but hit/hook others if convenient."
-          },
-          {
-            "term": "Slug for the 4K",
-            "def": "Leave someone downed while hunting last survivor/hatch."
-          },
-          {
-            "term": "Snowball",
-            "def": "One down leads into multiple downs quickly; momentum swing."
-          }
+            {
+                "term": "Hug Tech",
+                "def": "Sliding along collision during a dash to turn tightly instead of bumping."
+            },
+            {
+                "term": "U-Bend / Moonbound",
+                "def": "Wesker dash manipulation to curve or reverse direction."
+            },
+            {
+                "term": "Flick / 180",
+                "def": "Rapid camera turn at dash end to hit around corners."
+            },
+            {
+                "term": "Curve",
+                "def": "Hillbilly chainsaw drift using early high turn rate to round walls."
+            },
+            {
+                "term": "Bump Logic",
+                "def": "Choosing bump targets to set up the next Blight rush angle."
+            },
+            {
+                "term": "Mind Game",
+                "def": "Feigning direction (red stain, moonwalk) to trick Survivors into a hit."
+            },
+            {
+                "term": "Zoning",
+                "def": "Forcing Survivor movement with power/threat to drive them into danger."
+            },
+            {
+                "term": "Proxy Camp",
+                "def": "Guarding a hooked Survivor from nearby positions to intercept rescues."
+            },
+            {
+                "term": "Slugging",
+                "def": "Leaving Survivors in dying state to apply pressure or deny resets."
+            },
+            {
+                "term": "Tunneling",
+                "def": "Focusing one Survivor to remove them early and create a 3v1."
+            },
+            {
+                "term": "Camping",
+                "def": "Staying near hook to secure a kill or deny rescue."
+            },
+            {
+                "term": "Facecamp",
+                "def": "Standing right in front of hook; most extreme form of camping."
+            },
+            {
+                "term": "Hard Tunnel",
+                "def": "Go straight back to the unhooked survivor ASAP."
+            },
+            {
+                "term": "Soft Tunnel",
+                "def": "Prioritise the unhooked, but hit/hook others if convenient."
+            },
+            {
+                "term": "Slug for the 4K",
+                "def": "Leave someone downed while hunting last survivor/hatch."
+            },
+            {
+                "term": "Snowball",
+                "def": "One down leads into multiple downs quickly; momentum swing."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Killer Nicknames",
         "items": [
-          {
-            "term": "Bing Bong",
-            "def": "Wraith nickname from his bell sound."
-          },
-          {
-            "term": "Bubba / Booba",
-            "def": "Cannibal nickname from Leatherface's name."
-          },
-          {
-            "term": "Billy / Space Billy",
-            "def": "Hillbilly nickname; 'Space' references old flight glitches."
-          },
-          {
-            "term": "Mikey / Myers",
-            "def": "The Shape nickname using his real name."
-          },
-          {
-            "term": "Doc",
-            "def": "The Doctor nickname."
-          },
-          {
-            "term": "PH / Pyramid Head / Dorito Head",
-            "def": "Executioner nickname from helmet shape."
-          },
-          {
-            "term": "Wesker / Whiskers",
-            "def": "Mastermind nickname play on his name."
-          },
-          {
-            "term": "Nemmy / Nemo / Thanos",
-            "def": "Nemesis nicknames from pop culture."
-          },
-          {
-            "term": "Demo",
-            "def": "The Demogorgon nickname."
-          },
-          {
-            "term": "Pig",
-            "def": "The Pig; often paired with 'boop the snoot' meme."
-          },
-          {
-            "term": "Oreo",
-            "def": "Onryo nickname based on pronunciation."
-          },
-          {
-            "term": "Front Butt",
-            "def": "The Unknown nickname referencing model anatomy."
-          }
+            {
+                "term": "Bing Bong",
+                "def": "Wraith nickname from his bell sound."
+            },
+            {
+                "term": "Bubba / Booba",
+                "def": "Cannibal nickname from Leatherface's name."
+            },
+            {
+                "term": "Billy / Space Billy",
+                "def": "Hillbilly nickname; 'Space' references old flight glitches."
+            },
+            {
+                "term": "Mikey / Myers",
+                "def": "The Shape nickname using his real name."
+            },
+            {
+                "term": "Doc",
+                "def": "The Doctor nickname."
+            },
+            {
+                "term": "PH / Pyramid Head / Dorito Head",
+                "def": "Executioner nickname from helmet shape."
+            },
+            {
+                "term": "Wesker / Whiskers",
+                "def": "Mastermind nickname play on his name."
+            },
+            {
+                "term": "Nemmy / Nemo / Thanos",
+                "def": "Nemesis nicknames from pop culture."
+            },
+            {
+                "term": "Demo",
+                "def": "The Demogorgon nickname."
+            },
+            {
+                "term": "Pig",
+                "def": "The Pig; often paired with 'boop the snoot' meme."
+            },
+            {
+                "term": "Oreo",
+                "def": "Onryo nickname based on pronunciation."
+            },
+            {
+                "term": "Front Butt",
+                "def": "The Unknown nickname referencing model anatomy."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Survivor Slang & Archetypes",
         "items": [
-          {
-            "term": "Gen Rush",
-            "def": "Prioritizing rapid generator completion over other actions."
-          },
-          {
-            "term": "Blendette",
-            "def": "Stealthy Claudette hiding in bushes instead of doing objectives."
-          },
-          {
-            "term": "Baby Survivor / Dweet",
-            "def": "Inexperienced player, often a default Dwight."
-          },
-          {
-            "term": "Immersed",
-            "def": "Stealth-heavy playstyle avoiding chases."
-          },
-          {
-            "term": "SWF",
-            "def": "Survive With Friends; coordinated premade team."
-          },
-          {
-            "term": "Solo Q",
-            "def": "Solo queue with random teammates and limited info."
-          },
-          {
-            "term": "Bully Squad",
-            "def": "SWF focused on harassing the Killer with flashlights/sabo."
-          },
-          {
-            "term": "Sabo Squad",
-            "def": "Team dedicated to sabotaging hooks to deny carries."
-          },
-          {
-            "term": "Hook Diving",
-            "def": "Instant unhooks in front of the Killer, often unsafe."
-          }
+            {
+                "term": "Gen Rush",
+                "def": "Prioritizing rapid generator completion over other actions."
+            },
+            {
+                "term": "Blendette",
+                "def": "Stealthy Claudette hiding in bushes instead of doing objectives."
+            },
+            {
+                "term": "Baby Survivor / Dweet",
+                "def": "Inexperienced player, often a default Dwight."
+            },
+            {
+                "term": "Immersed",
+                "def": "Stealth-heavy playstyle avoiding chases."
+            },
+            {
+                "term": "SWF",
+                "def": "Survive With Friends; coordinated premade team."
+            },
+            {
+                "term": "Solo Q",
+                "def": "Solo queue with random teammates and limited info."
+            },
+            {
+                "term": "Bully Squad",
+                "def": "SWF focused on harassing the Killer with flashlights/sabo."
+            },
+            {
+                "term": "Sabo Squad",
+                "def": "Team dedicated to sabotaging hooks to deny carries."
+            },
+            {
+                "term": "Hook Diving",
+                "def": "Instant unhooks in front of the Killer, often unsafe."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Key Perks & Acronyms",
         "items": [
-          {
-            "term": "NOED",
-            "def": "Hex: No One Escapes Death; insta-down and speed when gates are powered."
-          },
-          {
-            "term": "DS",
-            "def": "Decisive Strike; escape Killer's grasp after unhook."
-          },
-          {
-            "term": "DH",
-            "def": "Dead Hard; dash/endurance to avoid damage after safe unhook."
-          },
-          {
-            "term": "BT",
-            "def": "Borrowed Time; extends endurance for unhooked Survivors."
-          },
-          {
-            "term": "SB",
-            "def": "Sprint Burst; speed boost when starting to run."
-          },
-          {
-            "term": "Adren",
-            "def": "Adrenaline; heal one state and sprint when gates are powered."
-          },
-          {
-            "term": "UB",
-            "def": "Unbreakable; recover from dying state once per trial."
-          },
-          {
-            "term": "OTR",
-            "def": "Off the Record; endurance and scratch mark hiding after unhook."
-          },
-          {
-            "term": "Prove",
-            "def": "Prove Thyself; repair speed bonus when working with others."
-          },
-          {
-            "term": "Pop",
-            "def": "Pop Goes the Weasel; hook-triggered gen regression kick."
-          },
-          {
-            "term": "Pain Res",
-            "def": "Scourge Hook: Pain Resonance; explodes most progressed gen on scourge hook."
-          },
-          {
-            "term": "Corrupt",
-            "def": "Corrupt Intervention; blocks 3 furthest gens at trial start."
-          },
-          {
-            "term": "WoO",
-            "def": "Windows of Opportunity; shows pallets/windows."
-          },
-          {
-            "term": "FTP",
-            "def": "For the People; trade a health state to instantly heal a teammate."
-          },
-          {
-            "term": "Buckle Up",
-            "def": "Synergy perk historically paired with FTP for endurance pickups."
-          },
-          {
-            "term": "BBQ",
-            "def": "Barbecue & Chilli; aura read after hooking (formerly bonus BP)."
-          }
+            {
+                "term": "NOED",
+                "def": "Hex: No One Escapes Death; insta-down and speed when gates are powered."
+            },
+            {
+                "term": "DS",
+                "def": "Will To Live (formerly Decisive Strike); escape the Killer's grasp after unhook."
+            },
+            {
+                "term": "DH",
+                "def": "Dead Hard; dash/endurance to avoid damage after safe unhook."
+            },
+            {
+                "term": "BT",
+                "def": "Borrowed Time; extends endurance for unhooked Survivors."
+            },
+            {
+                "term": "SB",
+                "def": "Sprint Burst; speed boost when starting to run."
+            },
+            {
+                "term": "Adren",
+                "def": "Adrenaline; heal one state and sprint when gates are powered."
+            },
+            {
+                "term": "UB",
+                "def": "Unbreakable; recover from dying state once per trial."
+            },
+            {
+                "term": "OTR",
+                "def": "Off the Record; endurance and scratch mark hiding after unhook."
+            },
+            {
+                "term": "Prove",
+                "def": "Prove Thyself; repair speed bonus when working with others."
+            },
+            {
+                "term": "Pop",
+                "def": "Pop Goes the Weasel; hook-triggered gen regression kick."
+            },
+            {
+                "term": "Pain Res",
+                "def": "Scourge Hook: Pain Resonance; explodes most progressed gen on scourge hook."
+            },
+            {
+                "term": "Corrupt",
+                "def": "Corrupt Intervention; blocks 3 furthest gens at trial start."
+            },
+            {
+                "term": "WoO",
+                "def": "Windows of Opportunity; shows pallets/windows."
+            },
+            {
+                "term": "FTP",
+                "def": "For the People; trade a health state to instantly heal a teammate."
+            },
+            {
+                "term": "Buckle Up",
+                "def": "Synergy perk historically paired with FTP for endurance pickups."
+            },
+            {
+                "term": "BBQ",
+                "def": "Barbecue & Chilli; aura read after hooking (formerly bonus BP)."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Community & Etiquette",
         "items": [
-          {
-            "term": "GG / GGs",
-            "def": "Good game; standard post-match courtesy."
-          },
-          {
-            "term": "GLHF",
-            "def": "Good luck, have fun; pre-match greeting."
-          },
-          {
-            "term": "BM",
-            "def": "Bad manners; teabagging, hitting on hook, flashlight clicking, etc."
-          },
-          {
-            "term": "T-Bagging",
-            "def": "Rapid crouching to taunt or say hello."
-          },
-          {
-            "term": "Sandbag",
-            "def": "Teammate accidentally or intentionally gets you hit/caught."
-          },
-          {
-            "term": "Tryhard / Sweat",
-            "def": "Playing very seriously/optimally; usually said negatively."
-          },
-          {
-            "term": "TTV",
-            "def": "Twitch streamer tag in name; often attracts extra attention."
-          },
-          {
-            "term": "Nice tunnel/camp",
-            "def": "Usually sarcasm/salt in endgame chat."
-          },
-          {
-            "term": "Boop the Snoot",
-            "def": "Friendly Pig interaction; crouch/point to request mercy."
-          },
-          {
-            "term": "Burger King Myers",
-            "def": "Slow meme build using tombstone/vanity mirror add-ons."
-          },
-          {
-            "term": "Scratched Mirror Myers",
-            "def": "Jumpscare build with wall-hack add-on, Tier 1 terror radius."
-          },
-          {
-            "term": "Clicky Clicky",
-            "def": "Flashlight spam to taunt or demand aggro."
-          },
-          {
-            "term": "Hit on Hook",
-            "def": "Killer hitting a hooked Survivor; seen as BM."
-          }
+            {
+                "term": "GG / GGs",
+                "def": "Good game; standard post-match courtesy."
+            },
+            {
+                "term": "GLHF",
+                "def": "Good luck, have fun; pre-match greeting."
+            },
+            {
+                "term": "BM",
+                "def": "Bad manners; teabagging, hitting on hook, flashlight clicking, etc."
+            },
+            {
+                "term": "T-Bagging",
+                "def": "Rapid crouching to taunt or say hello."
+            },
+            {
+                "term": "Sandbag",
+                "def": "Teammate accidentally or intentionally gets you hit/caught."
+            },
+            {
+                "term": "Tryhard / Sweat",
+                "def": "Playing very seriously/optimally; usually said negatively."
+            },
+            {
+                "term": "TTV",
+                "def": "Twitch streamer tag in name; often attracts extra attention."
+            },
+            {
+                "term": "Nice tunnel/camp",
+                "def": "Usually sarcasm/salt in endgame chat."
+            },
+            {
+                "term": "Boop the Snoot",
+                "def": "Friendly Pig interaction; crouch/point to request mercy."
+            },
+            {
+                "term": "Burger King Myers",
+                "def": "Slow meme build using tombstone/vanity mirror add-ons."
+            },
+            {
+                "term": "Scratched Mirror Myers",
+                "def": "Jumpscare build with wall-hack add-on, Tier 1 terror radius."
+            },
+            {
+                "term": "Clicky Clicky",
+                "def": "Flashlight spam to taunt or demand aggro."
+            },
+            {
+                "term": "Hit on Hook",
+                "def": "Killer hitting a hooked Survivor; seen as BM."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Comms & Callouts",
         "items": [
-          {
-            "term": "On me",
-            "def": "Killer is chasing me."
-          },
-          {
-            "term": "Off me",
-            "def": "Killer left chase."
-          },
-          {
-            "term": "He's proxying",
-            "def": "Killer staying near hook."
-          },
-          {
-            "term": "Stick it",
-            "def": "Keep doing the gen."
-          },
-          {
-            "term": "Leave",
-            "def": "Disengage; don't greed the rescue/gen."
-          },
-          {
-            "term": "Trade",
-            "def": "I'll take hook so you can get out / reset."
-          },
-          {
-            "term": "Reset",
-            "def": "Everyone heal and spread."
-          }
+            {
+                "term": "On me",
+                "def": "Killer is chasing me."
+            },
+            {
+                "term": "Off me",
+                "def": "Killer left chase."
+            },
+            {
+                "term": "He's proxying",
+                "def": "Killer staying near hook."
+            },
+            {
+                "term": "Stick it",
+                "def": "Keep doing the gen."
+            },
+            {
+                "term": "Leave",
+                "def": "Disengage; don't greed the rescue/gen."
+            },
+            {
+                "term": "Trade",
+                "def": "I'll take hook so you can get out / reset."
+            },
+            {
+                "term": "Reset",
+                "def": "Everyone heal and spread."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Rarity & Add-on Shorthand",
         "items": [
-          {
-            "term": "Iri",
-            "def": "Iridescent; highest rarity tier (pink/red items and add-ons)."
-          },
-          {
-            "term": "Purple",
-            "def": "Very Rare rarity tier."
-          },
-          {
-            "term": "Green",
-            "def": "Rare rarity tier."
-          },
-          {
-            "term": "Yellow",
-            "def": "Uncommon rarity tier."
-          },
-          {
-            "term": "Brown",
-            "def": "Common rarity tier (lowest)."
-          }
+            {
+                "term": "Iri",
+                "def": "Iridescent; highest rarity tier (pink/red items and add-ons)."
+            },
+            {
+                "term": "Purple",
+                "def": "Very Rare rarity tier."
+            },
+            {
+                "term": "Green",
+                "def": "Rare rarity tier."
+            },
+            {
+                "term": "Yellow",
+                "def": "Uncommon rarity tier."
+            },
+            {
+                "term": "Brown",
+                "def": "Common rarity tier (lowest)."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Items & Interactions",
         "items": [
-          {
-            "term": "Flashlight Save",
-            "def": "Blind killer during pickup animation to drop survivor."
-          },
-          {
-            "term": "Blind",
-            "def": "Flashlight or firecracker blind on the Killer."
-          },
-          {
-            "term": "Pallet Save",
-            "def": "Stunning killer during pickup to free survivor."
-          },
-          {
-            "term": "Bodyblock",
-            "def": "Use your body to block the Killer's path."
-          },
-          {
-            "term": "Protection Hit",
-            "def": "Taking a hit meant for someone else."
-          },
-          {
-            "term": "Sabo / Sabo Play",
-            "def": "Sabotaging hooks with toolbox or perks."
-          },
-          {
-            "term": "Heal Under Hook",
-            "def": "Healing someone right at the hook; often debated if safe."
-          },
-          {
-            "term": "99 a Heal",
-            "def": "Heal to 99% and finish later for timing."
-          },
-          {
-            "term": "Unhook",
-            "def": "Rescue someone from hook."
-          },
-          {
-            "term": "Rehook",
-            "def": "Hook someone again soon after; often said alongside 'tunnel'."
-          }
+            {
+                "term": "Flashlight Save",
+                "def": "Blind killer during pickup animation to drop survivor."
+            },
+            {
+                "term": "Blind",
+                "def": "Flashlight or firecracker blind on the Killer."
+            },
+            {
+                "term": "Pallet Save",
+                "def": "Stunning killer during pickup to free survivor."
+            },
+            {
+                "term": "Bodyblock",
+                "def": "Use your body to block the Killer's path."
+            },
+            {
+                "term": "Protection Hit",
+                "def": "Taking a hit meant for someone else."
+            },
+            {
+                "term": "Sabo / Sabo Play",
+                "def": "Sabotaging hooks with toolbox or perks."
+            },
+            {
+                "term": "Heal Under Hook",
+                "def": "Healing someone right at the hook; often debated if safe."
+            },
+            {
+                "term": "99 a Heal",
+                "def": "Heal to 99% and finish later for timing."
+            },
+            {
+                "term": "Unhook",
+                "def": "Rescue someone from hook."
+            },
+            {
+                "term": "Rehook",
+                "def": "Hook someone again soon after; often said alongside 'tunnel'."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Totems",
         "items": [
-          {
-            "term": "Dull Totem",
-            "def": "Unlit totem with no active effect."
-          },
-          {
-            "term": "Hex",
-            "def": "Killer perk tied to a lit totem; destroyed when cleansed."
-          },
-          {
-            "term": "Cleanse",
-            "def": "Break a hex or dull totem."
-          },
-          {
-            "term": "Boon",
-            "def": "Survivor 'blessed' totem creating an aura zone with effects."
-          },
-          {
-            "term": "Bless",
-            "def": "Apply a boon perk to a totem."
-          }
+            {
+                "term": "Dull Totem",
+                "def": "Unlit totem with no active effect."
+            },
+            {
+                "term": "Hex",
+                "def": "Killer perk tied to a lit totem; destroyed when cleansed."
+            },
+            {
+                "term": "Cleanse",
+                "def": "Break a hex or dull totem."
+            },
+            {
+                "term": "Boon",
+                "def": "Survivor 'blessed' totem creating an aura zone with effects."
+            },
+            {
+                "term": "Bless",
+                "def": "Apply a boon perk to a totem."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Outcomes & Scoring",
         "items": [
-          {
-            "term": "0K / 1K / 2K / 3K / 4K",
-            "def": "Killer kills 0\u20134 survivors; 4K is a clean win, 2K often treated as a draw."
-          },
-          {
-            "term": "4E / 3E / 2E / 1E / 0E",
-            "def": "Number of survivors escaping."
-          },
-          {
-            "term": "Hatch Escape",
-            "def": "Last survivor escapes via hatch."
-          },
-          {
-            "term": "Gate Escape",
-            "def": "Survivor escapes via an opened exit gate."
-          },
-          {
-            "term": "BP",
-            "def": "Bloodpoints; in-game currency for progression."
-          },
-          {
-            "term": "Pip / Depip",
-            "def": "Gaining or losing progress in grade."
-          },
-          {
-            "term": "Tome / Archives / Rift",
-            "def": "Challenge tracks and battle-pass style progression."
-          }
+            {
+                "term": "0K / 1K / 2K / 3K / 4K",
+                "def": "Killer kills 0\u20134 survivors; 4K is a clean win, 2K often treated as a draw."
+            },
+            {
+                "term": "4E / 3E / 2E / 1E / 0E",
+                "def": "Number of survivors escaping."
+            },
+            {
+                "term": "Hatch Escape",
+                "def": "Last survivor escapes via hatch."
+            },
+            {
+                "term": "Gate Escape",
+                "def": "Survivor escapes via an opened exit gate."
+            },
+            {
+                "term": "BP",
+                "def": "Bloodpoints; in-game currency for progression."
+            },
+            {
+                "term": "Pip / Depip",
+                "def": "Gaining or losing progress in grade."
+            },
+            {
+                "term": "Tome / Archives / Rift",
+                "def": "Challenge tracks and battle-pass style progression."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Queue & Team Structure",
         "items": [
-          {
-            "term": "Duo / 3-man / 4-man",
-            "def": "Size of the SWF group."
-          },
-          {
-            "term": "Stacked SWF",
-            "def": "Very coordinated/strong premade group."
-          }
+            {
+                "term": "Duo / 3-man / 4-man",
+                "def": "Size of the SWF group."
+            },
+            {
+                "term": "Stacked SWF",
+                "def": "Very coordinated/strong premade group."
+            }
         ]
-      },
-      {
+    },
+    {
         "section": "Survivor States & Hook Stages",
         "items": [
-          {
-            "term": "Healthy / Injured",
-            "def": "Basic health states."
-          },
-          {
-            "term": "Downed / Dying State",
-            "def": "On the ground; can crawl and will bleed out."
-          },
-          {
-            "term": "Bleed Out",
-            "def": "Survivor dies from being left downed long enough."
-          },
-          {
-            "term": "Picked Up",
-            "def": "Killer picks a downed survivor up for hook/carry."
-          },
-          {
-            "term": "Wiggle",
-            "def": "Survivor escape attempt while being carried."
-          },
-          {
-            "term": "First Stage",
-            "def": "Hanging normally on hook."
-          },
-          {
-            "term": "Second Stage / Struggle",
-            "def": "Entity attempts; requires skill checks."
-          },
-          {
-            "term": "Death Hook",
-            "def": "Next hook kills; you've been hooked twice already."
-          },
-          {
-            "term": "EGC",
-            "def": "Endgame Collapse; timer after gates powered and opened or hatch closed."
-          }
+            {
+                "term": "Healthy / Injured",
+                "def": "Basic health states."
+            },
+            {
+                "term": "Downed / Dying State",
+                "def": "On the ground; can crawl and will bleed out."
+            },
+            {
+                "term": "Bleed Out",
+                "def": "Survivor dies from being left downed long enough."
+            },
+            {
+                "term": "Picked Up",
+                "def": "Killer picks a downed survivor up for hook/carry."
+            },
+            {
+                "term": "Wiggle",
+                "def": "Survivor escape attempt while being carried."
+            },
+            {
+                "term": "First Stage",
+                "def": "Hanging normally on hook."
+            },
+            {
+                "term": "Second Stage / Struggle",
+                "def": "Entity attempts; requires skill checks."
+            },
+            {
+                "term": "Death Hook",
+                "def": "Next hook kills; you've been hooked twice already."
+            },
+            {
+                "term": "EGC",
+                "def": "Endgame Collapse; timer after gates powered and opened or hatch closed."
+            }
         ]
-      }
-    ];
+    }
+];
     const PremadeBuildsView = ({ onBack }) => {
       const [search, setSearch] = useState('');
       const filtered = PREMADE_BUILDS.filter(b => {
@@ -7214,6 +6780,7 @@
       { id: 'ach_297', name: 'Adept First', description: 'Achieve a merciless victory with The First using only his 3 unique perks in a public match.', category: 'adept_killer' },
       { id: 'ach_298', name: 'Adept Dustin', description: 'Escape with Dustin Henderson using only his 3 unique perks in a public match.', category: 'adept_survivor' },
       { id: 'ach_299', name: 'Adept Eleven', description: 'Escape with Eleven using only her 3 unique perks in a public match.', category: 'adept_survivor' },
+      { id: 'ach_300', name: 'Adept Tae-Young', description: 'Escape with Kwon Tae-Young using only his 3 unique perks in a public match.', category: 'adept_survivor' },
     ];
     const STORAGE_KEY_ACHIEVEMENTS = 'dbd_achievements_progress';
     const ProgressionTrackerView = ({ onGoTo }) => {
@@ -8091,26 +7658,6 @@
                 filteredItems.map(item => {
                   const isExpanded = expandedId === item.id;
                   const itemAddons = getAddonsForItemType(item.itemType);
-                  const ITEM_IMAGE_FIXES = {
-                    'Anniversary Toolbox': 'iconitems_anniversarytoolbox.png',
-                    'Anniversary Flashlight': 'iconitems_anniversaryflashlight.png',
-                    'Anniversary Med-Kit': 'iconitems_anniversarymedkit.png',
-                    'Anniversary Med-kit': 'iconitems_anniversarymedkit.png',
-                    'Masquerade Flashlight': 'iconitems_masqueradeflashlight.png',
-                    'Masquerade Med-Kit': 'iconitems_masquerademedkit.png',
-                    'Masquerade Toolbox': 'iconitems_masqueradetoolbox.png',
-                    'Third Year Party Starter': 'iconitems_thirdyearpartystarter.png',
-                    'Winter Party Starter': 'iconitems_winterpartystarter.png',
-                    'Cryptic Map': 'iconitems_crypticmap.png',
-                    'Festive Toolbox': 'iconitems_festivetoolbox.png',
-                    'Bloodsense Map': 'iconitems_bloodsensemap.png',
-                    "Apprentice's Fog Vial": 'iconitems_apprenticesfogvial.png',
-                    "Artisan's Fog Vial": 'iconitems_artisansfogvial.png',
-                    "Vigo's Fog Vial": 'iconitems_vigosfogvial.png'
-                  };
-                  const baseFilename = ITEM_IMAGE_FIXES[item.name] ||
-                    (item.image ? item.image.split('/').pop().toLowerCase() + '.png' : null);
-                  const itemImg = baseFilename ? './dbd_images/items/' + baseFilename : null;
                   return (
                     <div key={item.id} className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.id)}>
                       <div className="flex items-center gap-4 mb-2">
@@ -8173,24 +7720,17 @@
                 filteredKillers.map(killer => {
                   const isExpanded = expandedId === killer.id;
                   const powerAddons = getAddonsForKiller(killer);
-                  const KILLER_IMAGE_FIXES = {
-                    'The Hag': 'k06_thehag_portrait.png',
-                    'The Shape': 'k05_theshape_portrait.png',
-                    'The Good Guy': 'k34_thegoodguy_portrait.png',
-                    'The Dark Lord': 'k37_thedarklord_portrait.png',
-                    'The Krasue': 'k41_thekrasue_portrait.png'
-                  };
-                  const baseFilename = KILLER_IMAGE_FIXES[killer.name] ||
-                    (killer.image ? killer.image.split('/').pop().toLowerCase() : null);
-                  const killerImg = baseFilename ? './dbd_images/killers/' + baseFilename : null;
                   return (
                     <div key={killer.id} className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : killer.id)}>
                       <div className="flex items-center gap-4">
-                        {killerImg && (
-                          <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            <img src={killerImg} alt={killer.name} className="w-18 h-18 object-cover rounded-lg" onError={e => { e.target.style.display = 'none'; }} />
-                          </div>
-                        )}
+                        <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <AssetFrame
+                            type="Killer"
+                            size="fill"
+                            imageUrl={killer.image}
+                            fallbackIcon={<Icons.User width={28} height={28} className="text-zinc-500" />}
+                          />
+                        </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <h3 className="text-lg font-bold text-white">{killer.name}</h3>
@@ -8295,38 +7835,6 @@
         }
         return result;
       }, [active, search, filterRole, sortBy]);
-      const getOfferingImage = (offering) => {
-        if (!offering.image) return null;
-        const OFFERING_IMAGE_FIXES = {
-          'Ghastly Gateau': 'iconfavors_ghastlygateau.png',
-          'Sacrificial Cake': 'iconfavors_sacrificialcake.png',
-          'Frightful Flan': 'iconfavors_frightfulflan.png',
-          'TERRORMISU': 'iconfavors_terrormisu.png',
-          'SCREECH COBBLER': 'iconfavors_screechcobbler.png',
-          'Coconut Scream Pie': 'iconfavors_gruesomegateau.png',
-          'Black Ward': 'iconfavors_blackward.png',
-          'White Ward': 'iconfavors_whiteward.png',
-          'Sacrificial Ward': 'iconfavors_sacrificialward.png',
-          'Crescent Moon Bouquet': 'iconfavors_crescentmoonbouquet.png',
-          'Cypress Memento Mori': 'iconfavors_cypressmementomori.png',
-          'Ebony Memento Mori': 'iconfavors_ebonymementomori.png',
-          'Ivory Memento Mori': 'iconfavors_ivorymementomori.png',
-          'RPD Badge': 'iconfavors_rpdbadge.png',
-          'Arcane Dowsing Rod': 'iconfavors_arcanedousingrod.png',
-          'Yamaoka Family Crest': 'iconfavors_yamaokafamilycrest.png',
-          'MacMillan Ledger Page': 'iconfavors_macmillanledgerpage.png',
-          "MacMillan's Phalanx Bone": 'iconfavors_macmillansphalanxbone.png',
-          'Red Envelope': 'iconfavors_redenvelope.png',
-          'Shredded Plate': 'iconfavors_shreddedplate.png',
-          'Shroud of Vanishing': 'iconfavors_vigosshroud.png',
-          "Vigo's Jar of Salty Lips": 'iconfavors_vigosjarofsaltylips.png',
-          'Virginia Plate': 'iconfavors_virginiaplate.png',
-          'MISTLE TOES': 'iconfavors_gruesomegateau.png'
-        };
-        const filename = OFFERING_IMAGE_FIXES[offering.name] ||
-          (offering.image.split('/').pop().toLowerCase() + '.png');
-        return './dbd_images/offerings/' + filename;
-      };
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
           <Header title="Offerings" subtitle={active.length + " offerings"} onBack={onBack} infoTips={VIEW_TIPS.offerings} />
@@ -8357,7 +7865,6 @@
           <div className="pb-32 space-y-3 -mx-6 px-6">
             {filtered.length === 0 && <div className="text-center text-zinc-500 mt-12">No offerings found.</div>}
             {filtered.map(offering => {
-              const offeringImg = getOfferingImage(offering);
               const isExpanded = expandedId === offering.id;
               return (
                 <div key={offering.id} className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : offering.id)}>
@@ -8912,7 +8419,7 @@
                     <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                   </div>
                 </div>
-                <div className="blood-text text-5xl sm:text-6xl font-black text-white mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '-0.02em' }}>
+                <div className="blood-text text-5xl sm:text-6xl font-black text-white mb-2" style={{ letterSpacing: '-0.02em' }}>
                   {formatNumber(animatedBP)}
                 </div>
                 <div className="text-zinc-500 text-sm">
@@ -9106,11 +8613,14 @@
               {/* Icon + Name */}
               <div className="flex flex-col items-center pt-8 pb-4 px-6">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 border-2" style={{ borderColor: `${borderColor}60`, backgroundColor: `${borderColor}15` }}>
-                  {icon.icon ? (
-                    <img src={icon.icon} alt={icon.name} className="w-14 h-14 object-contain" />
-                  ) : (
-                    <Icons.Zap width={32} height={32} style={{ color: borderColor }} />
-                  )}
+                  <div className="w-14 h-14">
+                    <AssetFrame
+                      type="GameIcon"
+                      size="fill"
+                      imageUrl={icon.icon}
+                      fallbackIcon={<Icons.Zap width={32} height={32} style={{ color: borderColor }} />}
+                    />
+                  </div>
                 </div>
                 <h2 className="text-xl font-black text-white tracking-tight text-center" style={{ borderBottom: `3px solid ${borderColor}`, paddingBottom: '4px' }}>
                   {icon.name}
@@ -9213,11 +8723,12 @@
                       title={icon.name}
                     >
                       <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
-                        {icon.icon ? (
-                          <img src={icon.icon} alt={icon.name} className="w-full h-full object-contain drop-shadow-lg" />
-                        ) : (
-                          <Icons.Zap width={28} height={28} style={{ color: ringColor }} />
-                        )}
+                        <AssetFrame
+                          type="GameIcon"
+                          size="fill"
+                          imageUrl={icon.icon}
+                          fallbackIcon={<Icons.Zap width={28} height={28} style={{ color: ringColor }} />}
+                        />
                       </div>
                       <p className="text-[9px] sm:text-[10px] text-zinc-400 font-semibold text-center leading-tight mt-1 line-clamp-2 group-hover:text-white transition-colors">
                         {icon.name}
@@ -9269,11 +8780,12 @@
                           borderColor: `${accentColor}30`
                         }}
                       >
-                        {icon.icon ? (
-                          <img src={icon.icon} alt={icon.name} className="w-10 h-10 object-contain" />
-                        ) : (
-                          <Icons.Zap width={24} height={24} style={{ color: accentColor }} />
-                        )}
+                        <AssetFrame
+                          type="GameIcon"
+                          size="fill"
+                          imageUrl={icon.icon}
+                          fallbackIcon={<Icons.Zap width={24} height={24} style={{ color: accentColor }} />}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -9432,18 +8944,19 @@
               <div className="flex items-center gap-3">
                 <div className="w-14 h-14 rounded-xl bg-zinc-800/80 flex items-center justify-center border border-red-500/40 overflow-hidden">
                   {(() => {
-                    const safeName = killer.name.toLowerCase().replace(/ /g, '_').replace(/'/g, '').replace(/ō/g, 'o');
+                    const safeName = killer.name.toLowerCase().replace(/ /g, '_').replace(/'/g, '');
                     const iconPath = `./dbd_images/powers/${safeName}_power.png`;
                     return (
-                      <img
-                        src={iconPath}
-                        alt={powerName}
-                        className="w-12 h-12 object-contain"
-                        onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'block'; }}
-                      />
+                      <div className="w-12 h-12">
+                        <AssetFrame
+                          type="Power"
+                          size="fill"
+                          imageUrl={iconPath}
+                          fallbackIcon={<Icons.Zap width={24} height={24} className="text-red-500" />}
+                        />
+                      </div>
                     );
                   })()}
-                  <Icons.Zap width={24} height={24} className="text-red-500" style={{ display: 'none' }} />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-0.5">{powerName}</p>
@@ -9509,6 +9022,10 @@
     };
     const MapLayoutModal = ({ map, onClose }) => {
       const [currentIndex, setCurrentIndex] = useState(0);
+      const [layoutBroken, setLayoutBroken] = useState(false);
+      useEffect(() => {
+        setLayoutBroken(false);
+      }, [map?.name, currentIndex]);
       if (!map) return null;
       const layouts = MAP_LAYOUTS[map.name];
       if (!layouts || layouts.length === 0) return null;
@@ -9538,11 +9055,19 @@
             {/* Layout Image - scrollable area */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center">
               <div className="relative w-full aspect-square max-h-[55vh] bg-zinc-800 rounded-2xl overflow-hidden flex items-center justify-center">
-                <img
-                  src={`./dbd_images/${layouts[currentIndex].path}`}
-                  alt={`${map.name} layout`}
-                  className="max-w-full max-h-full object-contain"
-                />
+                {!layoutBroken ? (
+                  <img
+                    src={`./dbd_images/${layouts[currentIndex].path}`}
+                    alt={`${map.name} layout`}
+                    className="max-w-full max-h-full object-contain"
+                    onError={() => setLayoutBroken(true)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 text-zinc-500 px-6 text-center">
+                    <Icons.Map width={36} height={36} className="text-zinc-600" />
+                    <p className="text-sm font-medium">Map layout unavailable in the offline bundle.</p>
+                  </div>
+                )}
               </div>
               {hasMultiple && (
                 <div className="flex gap-2 mt-4 flex-wrap justify-center">
@@ -9869,12 +9394,16 @@
                       <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                         <div className="flex items-center gap-3 mb-3">
                           {(() => {
-                            const safeName = character.name.toLowerCase().replace(/ /g, '_').replace(/'/g, '').replace(/ō/g, 'o');
+                            const safeName = character.name.toLowerCase().replace(/ /g, '_').replace(/'/g, '');
                             const iconPath = `./dbd_images/powers/${safeName}_power.png`;
                             return (
                               <div className="w-14 h-14 rounded-xl bg-zinc-800/80 flex items-center justify-center border border-red-500/40 overflow-hidden">
-                                <img src={iconPath} alt={guide?.powerName || 'Power'} className="w-12 h-12 object-contain" onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }} />
-                                <div className="items-center justify-center hidden"><Icons.Zap width={24} height={24} className="text-red-500" /></div>
+                                <AssetFrame
+                                  type="Power"
+                                  size="fill"
+                                  imageUrl={iconPath}
+                                  fallbackIcon={<Icons.Zap width={24} height={24} className="text-red-500" />}
+                                />
                               </div>
                             );
                           })()}

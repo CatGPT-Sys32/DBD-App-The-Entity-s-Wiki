@@ -4,7 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "normalize:images": "node scripts/normalize-images.js",
+    "check:images": "node scripts/normalize-images.js --check",
+    "build:data": "node scripts/build-data.js",
+    "check:data": "node scripts/normalize-images.js --check && node scripts/build-data.js --check && node scripts/verify-teachables.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "verify:content": "node scripts/normalize-images.js --check && node scripts/verify-teachables.js",
+    "verify:offline": "node scripts/verify-offline-runtime.js",
     "sync": "npx cap sync android",
     "android:copy": "npx cap copy android",
     "android:open": "npx cap open android",

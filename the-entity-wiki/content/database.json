@@ -1,4 +1,4 @@
-var DATABASE = {
+{
   "killers": [
     {
       "id": "7a34f0fb-fe18-4854-ab5d-47f89a210051",
@@ -21682,8 +21682,4 @@ var DATABASE = {
       "image": "dbd_images/addons/iconaddon_iridescentphotocard.png"
     }
   ]
-};
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = DATABASE;
 }

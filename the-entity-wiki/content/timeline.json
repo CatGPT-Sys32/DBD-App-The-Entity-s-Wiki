@@ -1,9 +1,5 @@
-// Dead by Daylight Lore Timeline Data
-// Complete chapter history with release dates, characters, maps, and lore summaries
-// Data compiled from official DBD Wiki and sources
-
-var TIMELINE_DATA = {
-  releases: [
+{
+  "releases": [
     {
       "id": "base-game",
       "name": "Dead by Daylight",
@@ -1471,25 +1467,5 @@ var TIMELINE_DATA = {
         }
       ]
     }
-  ],
-
-  getReleaseById: function (id) {
-    return this.releases.find(r => r.id === id);
-  },
-
-  getAllKillers: function () {
-    return this.releases.flatMap(r => r.killers);
-  },
-
-  getAllSurvivors: function () {
-    return this.releases.flatMap(r => r.survivors);
-  },
-
-  getChronological: function () {
-    return [...this.releases].sort((a, b) => new Date(a.date) - new Date(b.date));
-  }
-};
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = TIMELINE_DATA;
+  ]
 }
