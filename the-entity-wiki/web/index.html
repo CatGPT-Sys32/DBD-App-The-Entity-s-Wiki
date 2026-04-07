@@ -1389,6 +1389,93 @@
         return text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       }
     };
+    const normalizePerkDescriptionText = (text = '') => {
+      if (!text) return '';
+      return String(text)
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map(line => {
+          const match = line.match(/^(\s*)(-\s+)?(.*)$/);
+          const indent = match?.[1] || '';
+          const bullet = match?.[2] ? '- ' : '';
+          const body = stripHtml(match?.[3] || '')
+            .replace(/\s*\/\s*/g, '/')
+            .replace(/([0-9])\s*%/g, '$1%')
+            .replace(/([+\-][0-9]+)\s*%/g, '$1%');
+          return body ? `${indent}${bullet}${body}` : '';
+        })
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    };
+    const getPerkDescriptionMode = (settings = {}) => settings?.perkDescriptionMode === 'post95' ? 'post95' : 'legacy';
+    const getPerkLegacyDescription = (perk) => normalizePerkDescriptionText(perk?.description || '');
+    const getPerkModernDescription = (perk) => normalizePerkDescriptionText(perk?.descriptionPost95 || '');
+    const getPerkActiveDescription = (perk, settings = {}) => {
+      if (!perk) return '';
+      const modern = getPerkModernDescription(perk);
+      return getPerkDescriptionMode(settings) === 'post95' && modern ? modern : getPerkLegacyDescription(perk);
+    };
+    const getPerkSearchDescription = (perk) => {
+      const descriptions = [getPerkLegacyDescription(perk), getPerkModernDescription(perk)].filter(Boolean);
+      return [...new Set(descriptions)].join('\n');
+    };
+    const PERCENT_TOKEN_RE = /([+\-]?\d+(?:\.\d+)?(?:\s*\/\s*[+\-]?\d+(?:\.\d+)?)+\s*%|[+\-]?\d+(?:\.\d+)?\s*%)/g;
+    const isPercentToken = (value = '') => /^([+\-]?\d+(?:\.\d+)?(?:\s*\/\s*[+\-]?\d+(?:\.\d+)?)+\s*%|[+\-]?\d+(?:\.\d+)?\s*%)$/.test(value);
+    const renderPerkDescriptionText = (text, accentColor) => {
+      const parts = String(text).split(PERCENT_TOKEN_RE);
+      return parts.map((part, idx) => (
+        isPercentToken(part)
+          ? <span key={idx} className="font-bold" style={{ color: accentColor }}>{part}</span>
+          : <React.Fragment key={idx}>{part}</React.Fragment>
+      ));
+    };
+    const PerkDescriptionBlock = ({ perk, settings = {}, accentColor = 'var(--accent)', className = '', lineClassName = '', compactLines = null }) => {
+      if (!perk) return null;
+      const text = getPerkActiveDescription(perk, settings);
+      if (!text) return null;
+      const isRich = getPerkDescriptionMode(settings) === 'post95' && Boolean(getPerkModernDescription(perk));
+      const lines = text.split('\n');
+
+      if (compactLines) {
+        const compactText = lines
+          .filter(Boolean)
+          .slice(0, compactLines)
+          .map(line => line.replace(/^\s*-\s+/, ''))
+          .join(' ');
+        return (
+          <p className={className || lineClassName}>
+            {isRich ? renderPerkDescriptionText(compactText, accentColor) : compactText}
+          </p>
+        );
+      }
+
+      return (
+        <div className={className}>
+          {lines.map((line, idx) => {
+            if (!line.trim()) {
+              return <div key={`space-${idx}`} className="h-2" />;
+            }
+            const bulletMatch = line.match(/^(\s*)-\s+(.*)$/);
+            if (bulletMatch) {
+              const depth = Math.max(0, Math.floor((bulletMatch[1] || '').length / 2));
+              const content = bulletMatch[2];
+              return (
+                <div key={`line-${idx}`} className={`flex items-start gap-2 ${lineClassName}`} style={{ marginLeft: `${depth * 12}px` }}>
+                  <span className="mt-0.5 text-zinc-500">•</span>
+                  <span className="flex-1">{isRich ? renderPerkDescriptionText(content, accentColor) : content}</span>
+                </div>
+              );
+            }
+            return (
+              <p key={`line-${idx}`} className={lineClassName}>
+                {isRich ? renderPerkDescriptionText(line, accentColor) : line}
+              </p>
+            );
+          })}
+        </div>
+      );
+    };
     // Build release date lookup from timeline data for sorting
     const RELEASE_DATE_MAP = (() => {
       if (typeof TIMELINE_DATA === 'undefined') return {};
@@ -1480,6 +1567,7 @@
       manualTheme: 'blood',
       colorMode: 'oled',
       fontSize: 'default',
+      perkDescriptionMode: 'legacy',
       highContrast: false,
       showTemplates: true,
       rarityGlows: true,
@@ -1651,7 +1739,7 @@
         </div>
       );
     };
-    const BottomSheet = ({ isOpen, onClose, perk }) => {
+    const BottomSheet = ({ isOpen, onClose, perk, settings = {} }) => {
       const [dragY, setDragY] = useState(0);
       const [isDragging, setIsDragging] = useState(false);
       const startYRef = useRef(0);
@@ -1716,7 +1804,13 @@
             </div>
             {/* Perk description */}
             <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 200px)' }}>
-              <p className="text-zinc-300 text-sm leading-relaxed">{stripHtml(perk.description)}</p>
+              <PerkDescriptionBlock
+                perk={perk}
+                settings={settings}
+                accentColor={accentColor}
+                className="text-zinc-300 text-sm"
+                lineClassName="leading-relaxed"
+              />
 
               {/* Synergy suggestions */}
               {PERK_SYNERGIES[perk.name] && (
@@ -1853,8 +1947,10 @@
       { id: "injured", name: "Injured", category: "health", type: "neutral", icon: "./dbd_images/game_icons/injured.png", description: "The Survivor has taken one hit and is bleeding. They make noise and leave blood trails. One more hit will down them." },
       { id: "dying", name: "Dying (Downed)", category: "health", type: "neutral", icon: "./dbd_images/game_icons/dying.png", description: "The Survivor is on the ground and cannot move normally. They must crawl and can be picked up by the Killer or recovered by teammates." },
       { id: "hooked", name: "Hooked", category: "health", type: "neutral", icon: "./dbd_images/game_icons/hooked.png", description: "The Survivor is hanging on a Hook. They progress through hook stages and can attempt escape or be rescued by teammates." },
+      { id: "carried", name: "Carried", category: "health", type: "neutral", icon: "./dbd_images/game_icons/carried.png", description: "The Survivor is currently being carried by the Killer and can wiggle to escape before being hooked." },
       { id: "sacrificed", name: "Sacrificed", category: "health", type: "neutral", icon: "./dbd_images/game_icons/sacrificed.png", description: "The Survivor has been killed by The Entity after reaching the final hook stage. They are eliminated from the trial." },
       { id: "bledout", name: "Bled Out", category: "health", type: "neutral", icon: "./dbd_images/game_icons/bledout.png", description: "The Survivor has died from blood loss after remaining in the Dying State for too long (4 minutes)." },
+      { id: "dead", name: "Dead", category: "health", type: "neutral", icon: "./dbd_images/game_icons/dead.png", description: "The Survivor has died by a means other than sacrifice, such as a Mori, bleed-out, or a special kill condition." },
       { id: "disconnected", name: "Disconnected", category: "health", type: "neutral", icon: "./dbd_images/game_icons/disconnected.png", description: "The player has disconnected from the match, either voluntarily or due to connection issues." },
       { id: "obsession", name: "Obsession", category: "health", type: "neutral", icon: "./dbd_images/game_icons/obsession.png", description: "This Survivor is the Killer's Obsession. Various Perks interact differently with the Obsession." },
       { id: "caged", name: "Caged", category: "health", type: "neutral", icon: "./dbd_images/game_icons/caged.png", description: "The Survivor is trapped in a Cage of Atonement (The Executioner). Similar to being hooked but placed by the power." },
@@ -1864,7 +1960,6 @@
       { id: "endurance", name: "Endurance", category: "buff", type: "buff", icon: "./dbd_images/game_icons/endurance.png", description: "Survivors benefitting from Endurance can resist damage from the Killer. If hit, they are afflicted with Deep Wound instead of being injured. Cancelled by Conspicuous Actions." },
       { id: "haste", name: "Haste", category: "buff", type: "buff", icon: "./dbd_images/game_icons/haste.png", description: "Players benefitting from Haste have their Movement speed increased. The strength depends on the specific Perk or ability." },
       { id: "undetectable", name: "Undetectable", category: "buff", type: "buff", icon: "./dbd_images/game_icons/undetectable.png", description: "Killers benefitting from Undetectable: suppress their Terror Radius, suppress Red Stain, block Aura from Survivors, and suppress jump-scare SFX." },
-      { id: "vision", name: "Vision", category: "buff", type: "buff", icon: "./dbd_images/game_icons/vision.png", description: "Players benefitting from Vision can see Auras that would otherwise be hidden. Often granted by specific Perks." },
 
       { id: "blindness", name: "Blindness", category: "debuff", type: "debuff", icon: "./dbd_images/game_icons/blindness.png", description: "Players suffering from Blindness are unable to read any Auras, including the default ones of their role and those from Perks." },
       { id: "broken", name: "Broken", category: "debuff", type: "debuff", icon: "./dbd_images/game_icons/broken.png", description: "Survivors suffering from Broken are unable to be healed or heal themselves past the Injured State." },
@@ -1880,31 +1975,38 @@
       { id: "oblivious", name: "Oblivious", category: "debuff", type: "debuff", icon: "./dbd_images/game_icons/oblivious.png", description: "Survivors suffering from Oblivious are unable to perceive the Killer's Terror Radius and do not hear the Heartbeat warning." },
 
       { id: "marked", name: "Marked", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/marked.png", description: "The Ghost Face has fully stalked this Survivor. They are Exposed and can be downed in one hit for a limited time." },
+      { id: "marked_progress", name: "Marked Progress", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/marked_progress.png", description: "The Ghost Face is actively stalking this Survivor and building Marked progress. If the meter fills, they become Marked and Exposed." },
       { id: "condemned", name: "Condemned", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/condemned.png", description: "The Onryō's curse stacks on this Survivor. At maximum stacks, The Onryō can instantly kill them. Managed by picking up and returning Video Tapes." },
+      { id: "condemnation", name: "Condemnation Progress", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/condemnation.png", description: "The Onryō is actively building Condemned progress on this Survivor. Reaching the maximum stack count allows a special kill." },
       { id: "infected", name: "Infected", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/infected.png", description: "The Mastermind (Wesker) has infected this Survivor with Uroboros. At critical infection, the Survivor is Hindered and can be grabbed." },
+      { id: "infection_progress", name: "Infection Progress", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/infection_progress.png", description: "Uroboros infection is building on this Survivor, but it has not yet reached the fully Infected state." },
       { id: "sickness", name: "Sickness", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/sickness.png", description: "The Plague has infected this Survivor. At maximum sickness, the Survivor is Broken. Cleansing at a Pool of Devotion cures sickness but empowers The Plague." },
+      { id: "sickness_progress", name: "Sickness Progress", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/sickness_progress.png", description: "The Plague's Vile Purge is currently building infection on this Survivor, but they are not yet fully sick." },
       { id: "chainhunt", name: "Chain Hunt", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/chainhunt.png", description: "The Cenobite has initiated a Chain Hunt. All Survivors are periodically attacked by chains until someone solves the Lament Configuration." },
       { id: "lacerated", name: "Lacerated", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/lacerated.png", description: "The Trickster has thrown knives at this Survivor. At maximum laceration, the Survivor loses a health state." },
+      { id: "lacerated_progress", name: "Laceration Progress", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/lacerated_progress.png", description: "The Trickster has started building laceration on this Survivor, but the damage threshold has not been reached yet." },
       { id: "swarmed", name: "Swarmed", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/swarmed.png", description: "The Artist's crows are on this Survivor. If hit by another Dire Crow while swarmed, the Survivor takes damage." },
-      { id: "sleep", name: "Dream State", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/sleep.png", description: "The Nightmare has put this Survivor into the Dream World. They can see Dream Snares/Pallets and The Nightmare can teleport to them." },
       { id: "tormented", name: "Tormented", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/tormented.png", description: "The Executioner can send this Survivor to a Cage of Atonement instead of hooking them, or use Final Judgment to kill." },
       { id: "contaminated", name: "Contaminated", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/contaminated.png", description: "The Nemesis has contaminated this Survivor with a Tentacle Strike. Contaminated Survivors can be damaged by subsequent Tentacle Strikes and by Zombies.", tip: "Avoid Zombies and use Vaccines found in Supply Cases to cure contamination." },
       { id: "hunted", name: "Hunted", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/hunted.png", description: "A Guard spawned by The Knight is hunting this Survivor. If caught, the Survivor takes damage. The hunt lasts for a limited time before the Guard dissolves.", tip: "Loop the Guard like a normal Killer — they give up after a timer." },
       { id: "latchedon", name: "Latched On", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/latchedon.png", description: "Victor (The Twins) has pounced onto this Survivor's back. While latched, the Survivor's location is revealed and they cannot leave through the Exit Gate.", tip: "Have a teammate crush Victor off your back, or do it yourself (causes Broken)." },
-      { id: "lockon", name: "Lock On", category: "killer", type: "debuff", icon: null, description: "The Skull Merchant's drone has detected this Survivor. If they remain in the Detection Zone, they become fully Locked On, receiving an Exposed-like penalty and revealing their location.", tip: "Leave the drone's scan zone quickly or crouch through it." },
-      { id: "weakened", name: "Weakened", category: "killer", type: "debuff", icon: null, description: "The Unknown's UVX has weakened this Survivor. While weakened, looking away from The Unknown causes the Survivor to lose a health state. The effect decays over time.", tip: "Maintain line of sight with The Unknown to prevent losing a health state." },
       { id: "trapped_bear", name: "Trapped (Bear Trap)", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/trapped.png", description: "This Survivor is caught in a Bear Trap (The Trapper) or a Mimic (The Lich). They are immobilized and must attempt escape or wait for rescue.", tip: "Each self-escape attempt has ~16.7% chance. Teammates can free you faster." },
       { id: "rbt", name: "Reverse Bear Trap", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/rbt.png", description: "The Pig has placed a Reverse Bear Trap on this Survivor's head. Once activated (by completing a generator), a death timer starts. Search Jigsaw Boxes to remove it before time runs out.", tip: "Prioritize searching Jigsaw Boxes once your RBT is active. Don't work on gens." },
+      { id: "rbt_timer_paused", name: "Reverse Bear Trap Timer (Paused)", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/rbt_timer_paused.png", description: "The Pig's Reverse Bear Trap timer is paused and will not tick down until the trap becomes active." },
+      { id: "rbt_timer_active", name: "Reverse Bear Trap Timer (Active)", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/rbt_timer_active.png", description: "The Pig's Reverse Bear Trap timer is active and counting down to a lethal execution if the trap is not removed in time." },
       { id: "magic_disabled", name: "Magic Item Disabled", category: "killer", type: "debuff", icon: "./dbd_images/game_icons/magic_disabled.png", description: "The Lich's Dispelling Sphere has passed through this Survivor, disabling their equipped Magic Item for 60 seconds. While disabled, the Magic Item cannot be used. The Lich also sees the type of Magic Item on the Survivor's HUD.", tip: "You cannot use your Magic Item (Boots or Gauntlet) for 60s. Avoid the sphere by listening for its sound and moving perpendicular to its trajectory." },
+      { id: "puzzle", name: "Puzzle Solving", category: "killer", type: "neutral", icon: "./dbd_images/game_icons/puzzle.png", description: "The Survivor is holding or solving the Lament Configuration while facing The Cenobite." },
 
-      { id: "glyph", name: "Glyph", category: "debuff", type: "debuff", icon: "./dbd_images/game_icons/glyph.png", description: "The Killer is currently suffering from a debuff applied after interacting with an Orange Glyph. This status effect is exclusive to Killers during Glyph challenges." },
       { id: "revealed", name: "Revealed", category: "debuff", type: "debuff", icon: "./dbd_images/game_icons/revealed.png", description: "This Survivor's Aura is revealed to both Killers in the 2v8 Game Mode. This status effect is exclusive to the 2v8 mode." },
-      { id: "deafened", name: "Deafened", category: "debuff", type: "debuff", icon: "./dbd_images/game_icons/deafened.png", description: "Players suffering from Deafened have their audio muffled temporarily and hear a tinnitus-like whistling sound. While the icon is not displayed on the HUD, the effect is used by several Perks and Add-ons." },
+
+      { id: "efficiency", name: "Efficiency", category: "proficiency", type: "neutral", icon: "./dbd_images/game_icons/efficiency.png", description: "A Proficiency Indicator that shows whether an Item is depleting slower or faster than normal while it is being used." },
+      { id: "progression_speed", name: "Progression Speed", category: "proficiency", type: "neutral", icon: "./dbd_images/game_icons/progression_speed.png", description: "A Proficiency Indicator that shows whether the current interaction is progressing faster or slower than the default 1 charge per second." },
+      { id: "skillcheck_difficulty", name: "Skill Check Difficulty", category: "proficiency", type: "neutral", icon: "./dbd_images/game_icons/skillcheck_difficulty.png", description: "A Proficiency Indicator that shows whether upcoming Skill Checks are easier or harder than normal." },
+      { id: "skillcheck_probability", name: "Skill Check Probability", category: "proficiency", type: "neutral", icon: "./dbd_images/game_icons/skillcheck_probability.png", description: "A Proficiency Indicator that shows whether Skill Checks are appearing more or less often than usual." },
 
       { id: "activity_gen", name: "Repairing Generator", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_gen.png", description: "This Survivor is currently working on a Generator. Visible to teammates in the HUD." },
       { id: "activity_heal", name: "Healing", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_heal.png", description: "This Survivor is currently healing themselves or another Survivor. Visible to teammates in the HUD." },
-      { id: "activity_chase", name: "In Chase", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_chase.png", description: "This Survivor is currently being chased by the Killer. Other Survivors should use this time to work on objectives." },
-      { id: "activity_totem", name: "Cleansing Totem", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_totem.png", description: "This Survivor is currently cleansing or blessing a Totem. Visible to teammates in the HUD." },
+      { id: "activity_totem", name: "Totem Interaction", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_totem.png", description: "This Survivor is currently cleansing or blessing a Totem. Visible to teammates in the HUD." },
       { id: "activity_exitgate", name: "Opening Exit Gate", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_exitgate.png", description: "This Survivor is currently opening an Exit Gate. Visible to teammates in the HUD." },
       { id: "activity_recovery", name: "Recovering", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_recovery.png", description: "This Survivor is recovering from the Dying State. Their recovery progress is shown to teammates." },
       { id: "activity_chest", name: "Unlocking Chest", category: "activity", type: "neutral", icon: "./dbd_images/game_icons/activity_chest.png", description: "This Survivor is currently unlocking a Chest to find an Item. Visible to teammates in the HUD." },
@@ -2592,7 +2694,7 @@
         { action: 'Mode Toggle', description: 'Switch between Glossary (list view) and Trial Grid (icon tiles) at the top.' },
         { action: 'Tap Icon (Glossary)', description: 'In Glossary mode, tap an icon row to expand its description.' },
         { action: 'Tap Icon (Trial Grid)', description: 'In Trial Grid mode, tap an icon tile to open a flashcard with details and a quick tip.' },
-        { action: 'Category Filter', description: 'Filter by Health, Buff, Debuff, Killer, or Activity categories.' },
+        { action: 'Category Filter', description: 'Filter by Health, Buff, Debuff, Killer, Proficiency, or Activity categories.' },
       ],
       favorites: [
         { action: 'Category Tabs', description: 'Switch between All, Killers, Survivors, Perks, Items, Addons, and Offerings.' },
@@ -2625,7 +2727,7 @@
         {infoTips && <ViewInfoButton tips={infoTips} />}
       </div>
     );
-    const GlassCard = ({ item, category, expanded = false, onToggle, perksForOwner = [], onPerkClick, buildsForOwner = [], onCreateBuild, isInCompare = false, onLongPress, isFavorite = false, onToggleFavorite, onPerkTap, onShowLore, onShowPower, onViewProfile }) => {
+    const GlassCard = ({ item, category, expanded = false, onToggle, perksForOwner = [], onPerkClick, buildsForOwner = [], onCreateBuild, isInCompare = false, onLongPress, isFavorite = false, onToggleFavorite, onPerkTap, onShowLore, onShowPower, onViewProfile, settings = {} }) => {
       let subtext = '';
       let accentTone = 'var(--accent)';
       let fallbackIcon = <Icons.Zap width={20} height={20} />;
@@ -2736,10 +2838,24 @@
           </div>
           {item.description && (
             <div className="mt-4 pt-3 border-t border-white/5">
-              <p className="text-zinc-300/90 text-xs leading-relaxed font-medium tracking-wide">
-                <span className="text-zinc-500 mr-2 uppercase text-[10px] font-bold">Effect</span>
-                {stripHtml(item.description)}
-              </p>
+              {isPerk ? (
+                <div className="text-zinc-300/90 text-xs font-medium tracking-wide">
+                  <span className="text-zinc-500 mr-2 uppercase text-[10px] font-bold">Effect</span>
+                  <PerkDescriptionBlock
+                    perk={item}
+                    settings={settings}
+                    accentColor={accentTone}
+                    compactLines={3}
+                    className="inline"
+                    lineClassName="leading-relaxed"
+                  />
+                </div>
+              ) : (
+                <p className="text-zinc-300/90 text-xs leading-relaxed font-medium tracking-wide">
+                  <span className="text-zinc-500 mr-2 uppercase text-[10px] font-bold">Effect</span>
+                  {stripHtml(item.description)}
+                </p>
+              )}
             </div>
           )}
           {/* Lore button for characters when expanded */}
@@ -2778,7 +2894,13 @@
                     <AssetFrame type="Perk" imageUrl={perk.image} fallbackIcon={<Icons.BookOpen width={18} height={18} className="text-white/60" />} />
                     <div className="flex-1">
                       <p className="text-white text-sm font-bold">{perk.name}</p>
-                      <p className="text-zinc-500 text-xs mt-1 line-clamp-2 leading-relaxed">{stripHtml(perk.description)}</p>
+                      <PerkDescriptionBlock
+                        perk={perk}
+                        settings={settings}
+                        accentColor={accentTone}
+                        compactLines={2}
+                        className="text-zinc-500 text-xs mt-1 leading-relaxed"
+                      />
                     </div>
                   </button>
                 ))}
@@ -3513,7 +3635,7 @@
       const scoreItem = (item, tokens, context) => {
         let score = 0;
         const nameLower = (item.name || item.term || '').toLowerCase();
-        const descLower = (item.description || item.def || item.power || '').toLowerCase();
+        const descLower = ((item._category === 'Perk' ? getPerkSearchDescription(item) : (item.description || item.def || item.power || '')) || '').toLowerCase();
 
         // ── Exact full-query substring match in name (classic search behavior) ──
         const fullQuery = tokens.join(' ');
@@ -4297,7 +4419,7 @@
         </div>
       );
     };
-    const ListView = ({ data, type, filterOptions, activeFilter, setActiveFilter, allPerks = [], setView, onPerkSelect, initialSearch = '', onSearchChange, buildsByOwner = {}, onCreateBuildSeed, onBack, comparePerks = [], onPerkLongPress, favoritePerks = [], onToggleFavorite, onPerkTap, onShowLore, onShowPower, onViewProfile }) => {
+    const ListView = ({ data, type, filterOptions, activeFilter, setActiveFilter, allPerks = [], setView, onPerkSelect, initialSearch = '', onSearchChange, buildsByOwner = {}, onCreateBuildSeed, onBack, comparePerks = [], onPerkLongPress, favoritePerks = [], onToggleFavorite, onPerkTap, onShowLore, onShowPower, onViewProfile, settings = {} }) => {
       const scrollRef = useRef(null);
       const [localSearch, setLocalSearch] = useState(initialSearch || '');
       const [sortBy, setSortBy] = useState('name_asc');
@@ -4329,14 +4451,15 @@
         if (!data) return [];
         const term = localSearch.toLowerCase();
         let result = data.filter(item => {
+          const searchableDescription = (isPerkList ? getPerkSearchDescription(item) : (item.description || '')).toLowerCase();
           const searchMatch = !term
             || item.name.toLowerCase().includes(term)
             || (item.realName && item.realName.toLowerCase().includes(term))
             || (item.owner && item.owner.toLowerCase().includes(term))
-            || (item.description && item.description.toLowerCase().includes(term));
+            || searchableDescription.includes(term);
           let filterMatch;
           const perkName = (item.name || '').toLowerCase();
-          const perkDesc = (item.description || '').toLowerCase();
+          const perkDesc = searchableDescription;
           if (effectiveFilter === 'Favorites') {
             filterMatch = favoritePerks.includes(item.id);
           } else if (effectiveFilter === 'Exhaustion') {
@@ -4383,7 +4506,7 @@
           });
         }
         return result;
-      }, [data, localSearch, effectiveFilter, sortBy, isCharacterList, favoritePerks]);
+      }, [data, localSearch, effectiveFilter, sortBy, isCharacterList, favoritePerks, isPerkList]);
       return (
         <div ref={scrollRef} className="flex flex-col h-full pt-12 pb-32 overflow-y-auto custom-scrollbar">
           <div className="px-6"><Header title={type} subtitle="Database" onBack={onBack} onScrollTop={scrollToTop} infoTips={isPerkList ? VIEW_TIPS.perks : type === 'Killers' ? VIEW_TIPS.killers : VIEW_TIPS.survivors} /></div>
@@ -4460,6 +4583,7 @@
                   onShowLore={showPerks && onShowLore ? () => onShowLore(item) : undefined}
                   onShowPower={category === 'Killer' && onShowPower ? () => onShowPower(item) : undefined}
                   onViewProfile={showPerks && onViewProfile ? () => onViewProfile(item) : undefined}
+                  settings={settings}
                 />
               );
             })}
@@ -8128,6 +8252,26 @@
                 Haptic feedback (vibration)
               </label>
             </div>
+            <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 space-y-3">
+              <h3 className="text-lg font-bold text-white">Perk Descriptions</h3>
+              <p className="text-sm text-zinc-400">Choose which perk wording the app should show when both legacy and post-9.5.0 text are available.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'legacy', label: 'Legacy', description: 'Keep the original one-block descriptions already stored in the app.' },
+                  { id: 'post95', label: 'Post-9.5.0', description: 'Use the newer multiline wording and highlight percentage values when available.' }
+                ].map(option => (
+                  <button
+                    key={option.id}
+                    onClick={() => updateSetting('perkDescriptionMode', option.id)}
+                    className={`p-3 rounded-2xl border text-left transition-all ${settings.perkDescriptionMode === option.id ? 'bg-white/10 text-white' : 'bg-white/5 text-zinc-300 hover:border-white/20'}`}
+                    style={settings.perkDescriptionMode === option.id ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
+                  >
+                    <p className="text-sm font-bold">{option.label}</p>
+                    <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">{option.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
             { }
             <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 space-y-4">
               <h3 className="text-lg font-bold text-white">Customization</h3>
@@ -8517,8 +8661,8 @@
       const [expandedId, setExpandedId] = useState(null);
       const [viewMode, setViewMode] = useState('glossary'); // 'glossary' | 'grid'
       const [flashcardIcon, setFlashcardIcon] = useState(null);
-      const filters = ['All', 'Health', 'Buff', 'Debuff', 'Killer', 'Activity'];
-      const categoryLabels = { health: 'Health State', buff: 'Buff', debuff: 'Debuff', killer: 'Killer Power', activity: 'Activity' };
+      const filters = ['All', 'Health', 'Buff', 'Debuff', 'Killer', 'Proficiency', 'Activity'];
+      const categoryLabels = { health: 'Health State', buff: 'Buff', debuff: 'Debuff', killer: 'Killer Power', proficiency: 'Proficiency', activity: 'Activity' };
 
       const filteredIcons = useMemo(() => GAME_ICONS.filter(icon => {
         const matchesSearch = icon.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -8528,6 +8672,7 @@
           (filter === 'Buff' && icon.category === 'buff') ||
           (filter === 'Debuff' && icon.category === 'debuff') ||
           (filter === 'Killer' && icon.category === 'killer') ||
+          (filter === 'Proficiency' && icon.category === 'proficiency') ||
           (filter === 'Activity' && icon.category === 'activity');
         return matchesSearch && matchesFilter;
       }), [search, filter]);
@@ -8544,8 +8689,10 @@
           injured: 'One more hit = downed. You leave blood trails and make noise.',
           dying: 'Crawl to safety or recover. Teammates can pick you up.',
           hooked: 'Progress through stages. Signal teammates for rescue.',
+          carried: 'Wiggle, use nearby obstacles, and buy time before the hook.',
           sacrificed: 'Eliminated from the trial.',
           bledout: 'Died from blood loss after 4 minutes in Dying State.',
+          dead: 'The Survivor died by a kill condition other than being sacrificed on a Hook.',
           disconnected: 'Player left the match.',
           obsession: 'Certain perks interact differently with you.',
           caged: 'Similar to being hooked but placed by Pyramid Head\'s power.',
@@ -8554,7 +8701,6 @@
           endurance: 'Next hit gives Deep Wound instead of downing. Lost on conspicuous actions.',
           haste: 'Movement speed is increased.',
           undetectable: 'Killer has no Terror Radius, no Red Stain, and hidden Aura.',
-          vision: 'Can see Auras that would otherwise be hidden.',
           blindness: 'You cannot see ANY auras. Memorize locations beforehand.',
           broken: 'Cannot be healed past Injured. Wait for it to expire.',
           cursed: 'A Hex Totem is affecting you. Find and cleanse it.',
@@ -8574,14 +8720,22 @@
           chainhunt: 'Chains attacking everyone. Someone needs to solve the Lament Configuration.',
           lacerated: 'Trickster\'s knives. At max laceration, you lose a health state.',
           swarmed: 'Artist\'s crows on you. Another Dire Crow hit = damage.',
-          sleep: 'In Freddy\'s Dream World. Find an alarm clock or have a teammate wake you.',
           tormented: 'Pyramid Head can cage you or use Final Judgment instead of hooking.',
-          glyph: 'Killer is debuffed from an Orange Glyph challenge interaction.',
+          rbt_timer_paused: 'The Reverse Bear Trap is attached, but the death timer is not ticking yet.',
+          rbt_timer_active: 'The Reverse Bear Trap timer is live. Get to Jigsaw Boxes immediately.',
+          puzzle: 'You are carrying or solving the Lament Configuration. Expect pressure fast.',
           revealed: '2v8 mode: your Aura is shown to both Killers.',
-          deafened: 'Audio muffled temporarily with a tinnitus-like sound.',
+          efficiency: 'Your item lasts longer when this is positive and drains faster when it is negative.',
+          progression_speed: 'The main catch-all for faster or slower interaction progress.',
+          skillcheck_difficulty: 'Expect larger or smaller Skill Check success zones than normal.',
+          skillcheck_probability: 'Skill Checks will show up more or less often than usual.',
+          marked_progress: 'Ghost Face is still stalking you. Break line of sight before the bar fills.',
+          condemnation: 'Your Condemned meter is still climbing. Deal with tapes before it caps out.',
+          infection_progress: 'Wesker is building infection on you. Spray before it reaches critical.',
+          sickness_progress: 'Plague infection is building. Avoid teammates and consider when to cleanse.',
+          lacerated_progress: 'Each extra knife matters. Break line of sight and force reloads.',
           activity_gen: 'Survivor is repairing a Generator.',
           activity_heal: 'Survivor is healing.',
-          activity_chase: 'Survivor is being chased. Use this time for objectives.',
           activity_totem: 'Survivor is cleansing or blessing a Totem.',
           activity_exitgate: 'Survivor is opening an Exit Gate.',
           activity_recovery: 'Survivor is recovering from Dying State.',
@@ -9096,7 +9250,7 @@
         </div>
       );
     };
-    const PerkCompareModal = ({ perks, onClose, onRemove, theme }) => {
+    const PerkCompareModal = ({ perks, onClose, onRemove, theme, settings = {} }) => {
       if (!perks || perks.length === 0) return null;
       const accentColor = theme?.accent || '#38bdf8';
       return (
@@ -9150,7 +9304,13 @@
                     {perk.type} • {perk.owner || 'Universal'}
                   </p>
                   {/* Description */}
-                  <p className="text-xs text-zinc-400 leading-relaxed">{stripHtml(perk.description)}</p>
+                  <PerkDescriptionBlock
+                    perk={perk}
+                    settings={settings}
+                    accentColor={accentColor}
+                    className="text-xs text-zinc-400"
+                    lineClassName="leading-relaxed"
+                  />
                 </div>
               ))}
             </div>
@@ -9233,7 +9393,7 @@
         </button>
       );
     };
-    const CharacterProfileModal = ({ character, onClose, allPerks = [], onPerkTap, theme }) => {
+    const CharacterProfileModal = ({ character, onClose, allPerks = [], onPerkTap, theme, settings = {} }) => {
       if (!character) return null;
       const isKiller = character.type === 'Killer' || character.power;
       const accentColor = isKiller ? '#ef4444' : '#38bdf8';
@@ -9450,7 +9610,13 @@
                         <AssetFrame type="Perk" imageUrl={perk.image} fallbackIcon={<Icons.BookOpen width={20} height={20} className="text-white/60" />} />
                         <div className="flex-1">
                           <p className="text-white text-sm font-bold">{perk.name}</p>
-                          <p className="text-zinc-500 text-xs mt-1.5 leading-relaxed">{stripHtml(perk.description)}</p>
+                          <PerkDescriptionBlock
+                            perk={perk}
+                            settings={settings}
+                            accentColor={accentColor}
+                            compactLines={3}
+                            className="text-zinc-500 text-xs mt-1.5 leading-relaxed"
+                          />
                         </div>
                       </button>
                     )) : (
@@ -9716,9 +9882,9 @@
             );
           case 'matches':
             return <MatchLogView onBack={() => setView('home')} matches={matches} setMatches={setMatches} killers={killers} survivors={survivors} builds={builds} prefs={matchPrefs} setPrefs={setMatchPrefs} onBuildUsed={markBuildUsed} />;
-          case 'killers': return <ListView data={killers} type="Killers" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} onShowPower={setPowerKiller} favoritePerks={settings.favoriteKillers || []} onToggleFavorite={(id) => toggleFavorite('Killer', id)} onViewProfile={setProfileCharacter} />;
-          case 'survivors': return <ListView data={survivors} type="Survivors" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} favoritePerks={settings.favoriteSurvivors || []} onToggleFavorite={(id) => toggleFavorite('Survivor', id)} onViewProfile={setProfileCharacter} />;
-          case 'perks': return <ListView data={perks} type="Perks" filterOptions={['All', 'Survivor', 'Killer', 'Favorites', 'Exhaustion', 'Hex', 'Boon', 'Scourge', 'Obsession', 'Aura', 'Stealth', 'Gen', 'Healing']} activeFilter={perkFilter} setActiveFilter={setPerkFilter} initialSearch={perkSearch} onSearchChange={setPerkSearch} onBack={() => setView('home')} comparePerks={comparePerks} onPerkLongPress={togglePerkCompare} favoritePerks={settings.favoritePerks || []} onToggleFavorite={toggleFavoritePerk} onPerkTap={setSelectedPerk} />;
+          case 'killers': return <ListView data={killers} type="Killers" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} onShowPower={setPowerKiller} favoritePerks={settings.favoriteKillers || []} onToggleFavorite={(id) => toggleFavorite('Killer', id)} onViewProfile={setProfileCharacter} settings={settings} />;
+          case 'survivors': return <ListView data={survivors} type="Survivors" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} favoritePerks={settings.favoriteSurvivors || []} onToggleFavorite={(id) => toggleFavorite('Survivor', id)} onViewProfile={setProfileCharacter} settings={settings} />;
+          case 'perks': return <ListView data={perks} type="Perks" filterOptions={['All', 'Survivor', 'Killer', 'Favorites', 'Exhaustion', 'Hex', 'Boon', 'Scourge', 'Obsession', 'Aura', 'Stealth', 'Gen', 'Healing']} activeFilter={perkFilter} setActiveFilter={setPerkFilter} initialSearch={perkSearch} onSearchChange={setPerkSearch} onBack={() => setView('home')} comparePerks={comparePerks} onPerkLongPress={togglePerkCompare} favoritePerks={settings.favoritePerks || []} onToggleFavorite={toggleFavoritePerk} onPerkTap={setSelectedPerk} settings={settings} />;
           case 'roulette': return <ChaosShuffleView onBack={() => setView('home')} perks={perks} killers={killers} survivors={survivors} items={items} addons={addons} offerings={offerings} settings={settings} />;
           case 'realms': return <RealmsView onBack={() => setView('home')} maps={maps} realms={realms} onViewLayout={setLayoutMap} />;
           case 'glossary': return <GlossaryView onBack={() => setView('home')} />;
@@ -9751,6 +9917,7 @@
               onClose={() => setShowCompareModal(false)}
               onRemove={togglePerkCompare}
               theme={theme}
+              settings={settings}
             />
           )}
           {/* Lore Modal */}
@@ -9782,6 +9949,7 @@
               allPerks={perks}
               onPerkTap={(perk) => { setProfileCharacter(null); setSelectedPerk(perk); }}
               theme={theme}
+              settings={settings}
             />
           )}
           {/* Bottom Sheet for perk details */}
@@ -9789,6 +9957,7 @@
             isOpen={selectedPerk !== null}
             onClose={() => setSelectedPerk(null)}
             perk={selectedPerk}
+            settings={settings}
           />
         </div>
       );
