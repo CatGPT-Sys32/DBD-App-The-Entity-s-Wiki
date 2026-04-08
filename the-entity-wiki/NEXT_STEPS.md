@@ -203,6 +203,8 @@ Suggested release flow:
 
 - Normalize canonical gameplay image paths:
   - `npm run normalize:images`
+- Sync trusted post-9.5 perk descriptions into the canonical database:
+  - `npm run sync:perk-descriptions`
 - Generate shipped runtime data:
   - `npm run build:data`
 - Check that generated runtime data is current:
@@ -222,3 +224,44 @@ The guiding rule for all future work:
 
 - The app is a packaged offline encyclopedia, not a live client.
 - Every change should preserve that model.
+
+## Perk Description Mode
+
+Current model:
+
+- `web/index.html` now supports a Settings toggle between `legacy` and `post95` perk descriptions.
+- `content/database.json` stores legacy text in `description`.
+- Verified newer wording is stored in `descriptionPost95`.
+- All `309` perks are now classified in `content/perk-description-report.json` as either:
+  - `different`
+  - `same_as_legacy`
+- In the app, `post95` mode shows `descriptionPost95` when present, otherwise it falls back to `description`.
+
+Source policy:
+
+- The canonical source for the full post-9.5 verification pass is the set of NightLight manifest shards:
+  - `scripts/perk-description-manifest-part1.json`
+  - `scripts/perk-description-manifest-part2.json`
+  - `scripts/perk-description-manifest-part3.json`
+  - `scripts/perk-description-manifest-part4.json`
+  - `scripts/perk-description-manifest-part5.json`
+  - `scripts/perk-description-manifest-part6.json`
+- Each manifest entry records:
+  - `status`
+  - `sourceUrl`
+  - `descriptionPost95` when the wording is actually different
+- The source pages are NightLight direct perk pages, not wiki summaries or marketing blurbs.
+
+Important implementation details:
+
+- `npm run sync:perk-descriptions` now runs a deterministic importer:
+  - `python3 scripts/sync-perk-descriptions.py`
+- The importer requires every perk to be present in the manifest shards and fails if anything is unresolved.
+- The importer strips NightLight flavor quotes and glossary/help lines before storing `descriptionPost95`.
+- The importer also writes `content/perk-description-report.json`, which is the provenance/coverage report for the full 309-perk roster.
+- `verify:content` and `check:data` now include `scripts/verify-perk-descriptions.js`.
+- Current verified counts:
+  - `different = 194`
+  - `same_as_legacy = 115`
+  - `unresolved = 0`
+- The UI highlights percentage tokens in post-9.5 mode and preserves multiline/bullet formatting where stored.

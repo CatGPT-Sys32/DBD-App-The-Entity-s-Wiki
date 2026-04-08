@@ -10,7 +10,9 @@ const ROOT = path.resolve(__dirname, '..');
 const WEB_ROOT = path.join(ROOT, 'web');
 const INDEX_PATH = path.join(WEB_ROOT, 'index.html');
 const DATA_PATH = path.join(WEB_ROOT, 'data.js');
+const WORLDLE_DATA_PATH = path.join(WEB_ROOT, 'worldle-data.js');
 const CAPACITOR_CONFIG_PATH = path.join(ROOT, 'capacitor.config.json');
+const ANDROID_MANIFEST_PATH = path.join(ROOT, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
 
 const issues = [];
 const warnings = [];
@@ -33,6 +35,35 @@ function parseDatabase() {
   vm.createContext(sandbox);
   vm.runInContext(`${code}\nthis.DATABASE = DATABASE;`, sandbox);
   return sandbox.DATABASE;
+}
+
+function parseWorldleData() {
+  const code = fs.readFileSync(WORLDLE_DATA_PATH, 'utf8');
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(`${code}\nthis.WORLDLE_DATA = WORLDLE_DATA;`, sandbox);
+  return sandbox.WORLDLE_DATA;
+}
+
+function normalizeEmojiClueSets(rawSets) {
+  if (Array.isArray(rawSets) && rawSets.every((entry) => typeof entry === 'string')) {
+    return rawSets.length >= 3 ? [{ id: 'legacy-1', emojis: rawSets.slice(0, 3) }] : [];
+  }
+  if (!Array.isArray(rawSets)) return [];
+  return rawSets
+    .map((entry, index) => {
+      if (Array.isArray(entry) && entry.every((item) => typeof item === 'string')) {
+        return entry.length >= 3 ? { id: `set-${index + 1}`, emojis: entry.slice(0, 3) } : null;
+      }
+      if (!entry || typeof entry !== 'object') return null;
+      const emojis = Array.isArray(entry.emojis) ? entry.emojis.filter((item) => typeof item === 'string').slice(0, 3) : [];
+      if (emojis.length < 3) return null;
+      return {
+        id: entry.id || `set-${index + 1}`,
+        emojis
+      };
+    })
+    .filter(Boolean);
 }
 
 function auditHtml(indexHtml) {
@@ -75,12 +106,31 @@ function auditCapacitorConfig() {
   }
 }
 
+function auditAndroidManifest() {
+  const manifest = fs.readFileSync(ANDROID_MANIFEST_PATH, 'utf8');
+  if (/android\.permission\.INTERNET/.test(manifest)) {
+    fail('AndroidManifest.xml declares android.permission.INTERNET, which breaks the strict offline contract.');
+  }
+}
+
+function auditRoutes(indexHtml) {
+  const setViewTargets = new Set([...indexHtml.matchAll(/setView\(\s*['"]([^'"]+)['"]/g)].map(match => match[1]));
+  const renderedRoutes = new Set([...indexHtml.matchAll(/case\s+['"]([^'"]+)['"]\s*:/g)].map(match => match[1]));
+  renderedRoutes.add('home');
+  setViewTargets.forEach((route) => {
+    if (!renderedRoutes.has(route)) {
+      fail(`setView() target "${route}" does not match any rendered route in App.renderContent().`);
+    }
+  });
+}
+
 function auditRequiredFiles(indexHtml) {
   const requiredFiles = [
     'web/vendor/react.production.min.js',
     'web/vendor/react-dom.production.min.js',
     'web/vendor/babel.min.js',
     'web/vendor/tailwindcss.min.js',
+    'web/worldle-data.js',
     'web/assets/default-killer.png',
     'web/assets/default-survivor.png',
     'web/assets/default-perk.svg',
@@ -109,12 +159,72 @@ function auditDatabaseImages(db) {
   issuesFromDatabase.forEach((message) => fail(`Generated DATABASE image issue: ${message}`));
 }
 
+function auditWorldle(indexHtml, db, worldleData) {
+  const killers = Array.isArray(db.killers) ? db.killers : [];
+  const perks = Array.isArray(db.perks) ? db.perks : [];
+  const aliases = worldleData?.aliases || {};
+  const genders = worldleData?.genders || {};
+  const emojiClues = worldleData?.emojiClues || {};
+
+  const killerStatsMatches = [...indexHtml.matchAll(/"([^"]+)":\s*\{\s*terrorRadius:\s*"[^"]+",\s*speed:\s*"[^"]+",\s*height:\s*"[^"]+"/g)];
+  const killerStatsNames = new Set(killerStatsMatches.map((match) => match[1]));
+
+  killers.forEach((killer) => {
+    if (!killerStatsNames.has(killer.name)) {
+      fail(`Worldle classic metadata is missing KILLER_STATS for "${killer.name}".`);
+    }
+    if (!Array.isArray(aliases[killer.name]) || aliases[killer.name].length === 0) {
+      fail(`Worldle alias metadata is missing entries for "${killer.name}".`);
+    }
+    if (typeof genders[killer.name] !== 'string' || !genders[killer.name]) {
+      fail(`Worldle gender metadata is missing for "${killer.name}".`);
+    }
+    const emojiSets = normalizeEmojiClueSets(emojiClues[killer.name]);
+    if (emojiSets.length < 3) {
+      fail(`Worldle emoji clue coverage is incomplete for "${killer.name}" (expected at least 3 clue sets).`);
+      return;
+    }
+    const seenSetIds = new Set();
+    emojiSets.forEach((emojiSet, index) => {
+      if (seenSetIds.has(emojiSet.id)) {
+        fail(`Worldle emoji clue set id "${emojiSet.id}" is duplicated for "${killer.name}".`);
+      }
+      seenSetIds.add(emojiSet.id);
+      if (!Array.isArray(emojiSet.emojis) || emojiSet.emojis.length !== 3) {
+        fail(`Worldle emoji clue set #${index + 1} for "${killer.name}" must contain exactly 3 emojis.`);
+      }
+    });
+  });
+
+  const survivorPerks = perks.filter((perk) => perk.type === 'Survivor');
+  const killerPerks = perks.filter((perk) => perk.type === 'Killer');
+  const teachableKillers = killers.filter((killer) => perks.filter((perk) => perk.owner === killer.name).length === 3);
+
+  if (killers.length === 0) fail('Worldle classic/emoji killer pool is empty.');
+  if (survivorPerks.length === 0) fail('Worldle survivor perk pool is empty.');
+  if (killerPerks.length === 0) fail('Worldle killer perk pool is empty.');
+  if (teachableKillers.length === 0) fail('Worldle teachables pool is empty.');
+
+  const emojiVariantPoolSize = killers.reduce((count, killer) => {
+    const emojiSets = normalizeEmojiClueSets(emojiClues[killer.name]);
+    return count + (emojiSets.length * 6);
+  }, 0);
+  if (emojiVariantPoolSize === 0) {
+    fail('Worldle emoji practice variant pool is empty.');
+  }
+}
+
 function main() {
   const indexHtml = fs.readFileSync(INDEX_PATH, 'utf8');
+  const database = parseDatabase();
+  const worldleData = parseWorldleData();
   auditHtml(indexHtml);
   auditCapacitorConfig();
+  auditAndroidManifest();
+  auditRoutes(indexHtml);
   auditRequiredFiles(indexHtml);
-  auditDatabaseImages(parseDatabase());
+  auditDatabaseImages(database);
+  auditWorldle(indexHtml, database, worldleData);
 
   if (warnings.length) {
     console.log('Warnings:');
