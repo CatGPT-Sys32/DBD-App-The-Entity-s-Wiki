@@ -45,6 +45,27 @@ function parseWorldleData() {
   return sandbox.WORLDLE_DATA;
 }
 
+function normalizeEmojiClueSets(rawSets) {
+  if (Array.isArray(rawSets) && rawSets.every((entry) => typeof entry === 'string')) {
+    return rawSets.length >= 3 ? [{ id: 'legacy-1', emojis: rawSets.slice(0, 3) }] : [];
+  }
+  if (!Array.isArray(rawSets)) return [];
+  return rawSets
+    .map((entry, index) => {
+      if (Array.isArray(entry) && entry.every((item) => typeof item === 'string')) {
+        return entry.length >= 3 ? { id: `set-${index + 1}`, emojis: entry.slice(0, 3) } : null;
+      }
+      if (!entry || typeof entry !== 'object') return null;
+      const emojis = Array.isArray(entry.emojis) ? entry.emojis.filter((item) => typeof item === 'string').slice(0, 3) : [];
+      if (emojis.length < 3) return null;
+      return {
+        id: entry.id || `set-${index + 1}`,
+        emojis
+      };
+    })
+    .filter(Boolean);
+}
+
 function auditHtml(indexHtml) {
   const externalTagPatterns = [
     { pattern: /<script\b[^>]*\bsrc=["']https?:\/\//i, message: 'External <script> src found in web/index.html.' },
@@ -158,9 +179,21 @@ function auditWorldle(indexHtml, db, worldleData) {
     if (typeof genders[killer.name] !== 'string' || !genders[killer.name]) {
       fail(`Worldle gender metadata is missing for "${killer.name}".`);
     }
-    if (!Array.isArray(emojiClues[killer.name]) || emojiClues[killer.name].length < 3) {
-      fail(`Worldle emoji clues are missing or incomplete for "${killer.name}".`);
+    const emojiSets = normalizeEmojiClueSets(emojiClues[killer.name]);
+    if (emojiSets.length < 3) {
+      fail(`Worldle emoji clue coverage is incomplete for "${killer.name}" (expected at least 3 clue sets).`);
+      return;
     }
+    const seenSetIds = new Set();
+    emojiSets.forEach((emojiSet, index) => {
+      if (seenSetIds.has(emojiSet.id)) {
+        fail(`Worldle emoji clue set id "${emojiSet.id}" is duplicated for "${killer.name}".`);
+      }
+      seenSetIds.add(emojiSet.id);
+      if (!Array.isArray(emojiSet.emojis) || emojiSet.emojis.length !== 3) {
+        fail(`Worldle emoji clue set #${index + 1} for "${killer.name}" must contain exactly 3 emojis.`);
+      }
+    });
   });
 
   const survivorPerks = perks.filter((perk) => perk.type === 'Survivor');
@@ -171,6 +204,14 @@ function auditWorldle(indexHtml, db, worldleData) {
   if (survivorPerks.length === 0) fail('Worldle survivor perk pool is empty.');
   if (killerPerks.length === 0) fail('Worldle killer perk pool is empty.');
   if (teachableKillers.length === 0) fail('Worldle teachables pool is empty.');
+
+  const emojiVariantPoolSize = killers.reduce((count, killer) => {
+    const emojiSets = normalizeEmojiClueSets(emojiClues[killer.name]);
+    return count + (emojiSets.length * 6);
+  }, 0);
+  if (emojiVariantPoolSize === 0) {
+    fail('Worldle emoji practice variant pool is empty.');
+  }
 }
 
 function main() {
