@@ -581,6 +581,7 @@
   <div id="root"></div>
   <script src="data.js"></script>
   <script src="lore.js"></script>
+  <script src="worldle-data.js"></script>
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef } = React;
     const triggerHaptic = async (style = 'Medium') => {
@@ -1487,17 +1488,38 @@
       });
       return map;
     })();
+    const RELEASE_INFO_MAP = (() => {
+      if (typeof TIMELINE_DATA === 'undefined') return {};
+      const map = {};
+      TIMELINE_DATA.releases.forEach((release) => {
+        (release.killers || []).forEach((killer) => {
+          map[killer.name] = {
+            year: Number(String(release.date || '').slice(0, 4)) || null,
+            licensed: Boolean(killer.licensed),
+            chapter: release.name || '',
+            displayDate: release.displayDate || ''
+          };
+        });
+      });
+      return map;
+    })();
+    const PROGRESSION_TABS = ['achievements', 'roster', 'challenges', 'analytics'];
+    const WORLDLE_MODES = ['classic', 'emoji', 'survivorPerk', 'killerPerk', 'teachables'];
     const STORAGE_KEYS = {
       builds: 'dbd_builds_v1',
       matches: 'dbd_matches_v1',
       progression: 'dbd_progression_v1',
       settings: 'dbd_settings_v1',
-      lastContext: 'dbd_last_context_v1'
+      notes: 'dbd_notes_v1',
+      lastContext: 'dbd_last_context_v1',
+      worldle: 'dbd_worldle_v1'
     };
+    const STORAGE_KEY_ACHIEVEMENTS = 'dbd_achievements_progress';
     const ALL_NAV_OPTIONS = [
       { id: 'perks', label: 'Perks' },
       { id: 'buildLab', label: 'Builds' },
       { id: 'roulette', label: 'Shuffle' },
+      { id: 'worldle', label: 'Worldle' },
       { id: 'progression', label: 'Progression' },
       { id: 'favorites', label: 'Favorites' },
       { id: 'killers', label: 'Killers' },
@@ -1515,10 +1537,10 @@
       { id: 'perks', label: 'Perk Finder', icon: 'BookOpen', desc: 'Search perks with role filters' },
       { id: 'buildLab', label: 'Build Lab', icon: 'Wrench', desc: 'Craft and save loadouts' },
       { id: 'favorites', label: 'My Favorites', icon: 'Star', desc: 'All your bookmarked content' },
-      { id: 'progression', label: 'Progression Tracker', icon: 'Target', desc: 'Track your DBD achievements' },
+      { id: 'progression', label: 'Progression Hub', icon: 'Target', desc: 'Achievements, roster, challenges and analytics' },
+      { id: 'worldle', label: 'DBD Worldle', icon: 'Search', desc: 'Daily offline killer and perk guessing games' },
       { id: 'matches', label: 'Match Log', icon: 'List', desc: 'Track matches & notes' },
       { id: 'prestige', label: "Entity's Offering", icon: 'Droplet', desc: 'BP calculator for prestiges' },
-      { id: 'progression', label: 'Collection', icon: 'Zap', desc: 'Prestige & perk progress' },
       { id: 'roulette', label: 'Chaos Shuffle', icon: 'Dices', desc: 'Randomize perk combos' },
       { id: 'realms', label: 'Realms', icon: 'Map', desc: 'Browse maps & realms' },
       { id: 'items', label: 'Items & Addons', icon: 'Package', desc: 'Survivor items with addons' },
@@ -1533,6 +1555,7 @@
       perks: 'BookOpen',
       buildLab: 'Wrench',
       roulette: 'Dices',
+      worldle: 'Search',
       progression: 'Target',
       favorites: 'Star',
       killers: 'Sword',
@@ -1572,8 +1595,10 @@
       showTemplates: true,
       rarityGlows: true,
       hapticEnabled: true,
+      ownedOnlyGlobal: false,
+      progressionTabOrder: [...PROGRESSION_TABS],
       navItems: ['perks', 'buildLab', 'roulette', 'progression'],
-      homeTiles: ['killers', 'survivors', 'perks', 'buildLab', 'favorites', 'progression', 'matches', 'roulette', 'realms', 'glossary', 'import', 'timeline'],
+      homeTiles: ['killers', 'survivors', 'perks', 'buildLab', 'favorites', 'progression', 'worldle', 'matches', 'roulette', 'realms', 'glossary', 'import', 'timeline'],
       favoritePerks: [],
       favoriteKillers: [],
       favoriteSurvivors: [],
@@ -1586,7 +1611,8 @@
       perks: {},
       corePerkIds: [],
       cosmetics: [],
-      challenges: []
+      challenges: [],
+      achievements: {}
     };
     const DEFAULT_MATCH_PREFS = {
       lastRole: 'Survivor',
@@ -1594,6 +1620,47 @@
       lastBuildId: null,
       killerWinThreshold: 2
     };
+    const createWorldleHistogram = () => ({
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+      7: 0,
+      8: 0,
+      9: 0,
+      10: 0,
+      '11+': 0
+    });
+    const createWorldleStatsBucket = () => ({
+      played: 0,
+      solved: 0,
+      currentStreak: 0,
+      bestStreak: 0,
+      totalSolvedGuesses: 0,
+      averageGuesses: 0,
+      histogram: createWorldleHistogram()
+    });
+    const createWorldleHistoryShape = () => ({
+      daily: [],
+      practice: []
+    });
+    const createWorldleStateShape = () => ({
+      daily: {},
+      practice: {},
+      stats: WORLDLE_MODES.reduce((acc, mode) => {
+        acc[mode] = {
+          daily: createWorldleStatsBucket(),
+          practice: createWorldleStatsBucket()
+        };
+        return acc;
+      }, {}),
+      history: WORLDLE_MODES.reduce((acc, mode) => {
+        acc[mode] = createWorldleHistoryShape();
+        return acc;
+      }, {})
+    });
     const loadFromStorage = (key, fallback) => {
       try {
         const raw = localStorage.getItem(key);
@@ -1613,6 +1680,528 @@
     };
     const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : `id-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`);
     const parseTags = (val = '') => val.split(',').map(t => t.trim()).filter(Boolean);
+    const ensureOrderedSubset = (value, allowed, fallback = []) => {
+      const source = Array.isArray(value) ? value : fallback;
+      const seen = new Set();
+      const ordered = [];
+      source.forEach((entry) => {
+        if (allowed.includes(entry) && !seen.has(entry)) {
+          seen.add(entry);
+          ordered.push(entry);
+        }
+      });
+      allowed.forEach((entry) => {
+        if (!seen.has(entry)) ordered.push(entry);
+      });
+      return ordered;
+    };
+    const normalizeNotesStore = (raw) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+      return Object.entries(raw).reduce((acc, [key, value]) => {
+        acc[key] = typeof value === 'string' ? value : '';
+        return acc;
+      }, {});
+    };
+    const normalizeGuessToken = (value = '') => (
+      String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '')
+    );
+    const getNoteKey = (type, id) => `${type}:${id}`;
+    const normalizeSettings = (raw) => {
+      const next = raw && typeof raw === 'object' ? raw : {};
+      const homeTileIds = [...new Set(ALL_HOME_TILES.map(tile => tile.id))];
+      return {
+        ...DEFAULT_SETTINGS,
+        ...next,
+        ownedOnlyGlobal: Boolean(next.ownedOnlyGlobal),
+        navItems: ensureOrderedSubset(next.navItems, ALL_NAV_OPTIONS.map(opt => opt.id), DEFAULT_SETTINGS.navItems),
+        homeTiles: ensureOrderedSubset(next.homeTiles, homeTileIds, DEFAULT_SETTINGS.homeTiles),
+        progressionTabOrder: ensureOrderedSubset(next.progressionTabOrder, PROGRESSION_TABS, DEFAULT_SETTINGS.progressionTabOrder),
+      };
+    };
+    const normalizePerkSnapshots = (snapshots = []) => {
+      if (!Array.isArray(snapshots)) return [];
+      return snapshots
+        .map((perk) => {
+          if (!perk) return null;
+          const id = perk.id || null;
+          const name = perk.name || '';
+          if (!name && !id) return null;
+          return {
+            id,
+            name: name || id,
+            type: perk.type || '',
+            owner: perk.owner || ''
+          };
+        })
+        .filter(Boolean);
+    };
+    const normalizeProgression = (raw, legacyAchievements = {}) => {
+      const next = raw && typeof raw === 'object' ? raw : {};
+      const challenges = Array.isArray(next.challenges) ? next.challenges : [];
+      return {
+        ...DEFAULT_PROGRESSION,
+        ...next,
+        characters: next.characters && typeof next.characters === 'object' && !Array.isArray(next.characters) ? next.characters : {},
+        perks: next.perks && typeof next.perks === 'object' && !Array.isArray(next.perks) ? next.perks : {},
+        corePerkIds: Array.isArray(next.corePerkIds) ? [...new Set(next.corePerkIds.filter(Boolean))] : [],
+        cosmetics: Array.isArray(next.cosmetics) ? next.cosmetics : [],
+        challenges: challenges.map((challenge) => ({
+          id: challenge?.id || uuid(),
+          name: challenge?.name || '',
+          description: challenge?.description || '',
+          side: ['Killer', 'Survivor', 'any'].includes(challenge?.side) ? challenge.side : 'any',
+          tags: Array.isArray(challenge?.tags) ? challenge.tags.filter(Boolean) : parseTags(challenge?.tags || ''),
+          buildId: challenge?.buildId || '',
+          status: ['planned', 'active', 'completed'].includes(challenge?.status) ? challenge.status : 'planned'
+        })),
+        achievements: {
+          ...(legacyAchievements && typeof legacyAchievements === 'object' ? legacyAchievements : {}),
+          ...(next.achievements && typeof next.achievements === 'object' && !Array.isArray(next.achievements) ? next.achievements : {})
+        }
+      };
+    };
+    const normalizeWorldleHistogram = (raw) => {
+      const fallback = createWorldleHistogram();
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return fallback;
+      return Object.keys(fallback).reduce((acc, key) => {
+        acc[key] = Number(raw[key]) || 0;
+        return acc;
+      }, {});
+    };
+    const normalizeWorldleStatsBucket = (raw) => {
+      const next = raw && typeof raw === 'object' ? raw : {};
+      const solved = Number(next.solved) || 0;
+      const totalSolvedGuesses = Number(next.totalSolvedGuesses) || 0;
+      return {
+        played: Number(next.played) || 0,
+        solved,
+        currentStreak: Number(next.currentStreak) || 0,
+        bestStreak: Number(next.bestStreak) || 0,
+        totalSolvedGuesses,
+        averageGuesses: solved > 0 ? Number((totalSolvedGuesses / solved).toFixed(2)) : 0,
+        histogram: normalizeWorldleHistogram(next.histogram)
+      };
+    };
+    const normalizeWorldleEntry = (entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      return {
+        ...entry,
+        guesses: Array.isArray(entry.guesses) ? entry.guesses : [],
+        solvedIds: Array.isArray(entry.solvedIds) ? entry.solvedIds : [],
+        revealedClues: Number(entry.revealedClues) || 0,
+        completedAt: entry.completedAt || null,
+        failed: entry.failed === true,
+        solved: entry.solved === true
+      };
+    };
+    const normalizeWorldleState = (raw) => {
+      const base = createWorldleStateShape();
+      const next = raw && typeof raw === 'object' ? raw : {};
+      WORLDLE_MODES.forEach((mode) => {
+        base.daily[mode] = normalizeWorldleEntry(next.daily?.[mode]);
+        base.practice[mode] = normalizeWorldleEntry(next.practice?.[mode]);
+        base.stats[mode] = {
+          daily: normalizeWorldleStatsBucket(next.stats?.[mode]?.daily),
+          practice: normalizeWorldleStatsBucket(next.stats?.[mode]?.practice)
+        };
+        base.history[mode] = {
+          daily: Array.isArray(next.history?.[mode]?.daily) ? next.history[mode].daily.slice(0, 30) : [],
+          practice: Array.isArray(next.history?.[mode]?.practice) ? next.history[mode].practice.slice(0, 30) : []
+        };
+      });
+      return base;
+    };
+    const buildDataLookups = ({ killers = [], survivors = [], perks = [], maps = [], builds = [] }) => {
+      const charactersById = {};
+      [...killers, ...survivors].forEach((character) => {
+        if (!character?.id) return;
+        charactersById[character.id] = {
+          ...character,
+          role: killers.some(killer => killer.id === character.id) ? 'Killer' : 'Survivor'
+        };
+      });
+      const perksById = {};
+      (perks || []).forEach((perk) => {
+        if (perk?.id) perksById[perk.id] = perk;
+      });
+      const mapsById = {};
+      const mapNameLookup = {};
+      (maps || []).forEach((map) => {
+        if (map?.id) mapsById[map.id] = map;
+        if (map?.name) mapNameLookup[map.name.toLowerCase()] = map;
+      });
+      const buildsById = {};
+      (builds || []).forEach((build) => {
+        if (build?.id) buildsById[build.id] = build;
+      });
+      return { charactersById, perksById, mapsById, mapNameLookup, buildsById };
+    };
+    const resolveOwnedState = ({ progression, killers = [], survivors = [], perks = [] }) => {
+      const characterStates = progression?.characters || {};
+      const ownedCharacterIds = new Set(
+        [...killers, ...survivors]
+          .filter(character => characterStates?.[character.id]?.owned)
+          .map(character => character.id)
+      );
+      const characterNameToId = {};
+      [...killers, ...survivors].forEach((character) => {
+        characterNameToId[character.name] = character.id;
+      });
+      const ownedPerkIds = new Set();
+      (perks || []).forEach((perk) => {
+        if (!perk.owner || perk.owner === 'All Killers' || perk.owner === 'All Survivors') {
+          ownedPerkIds.add(perk.id);
+          return;
+        }
+        const ownerId = characterNameToId[perk.owner];
+        const ownerState = ownerId ? characterStates?.[ownerId] : null;
+        const prestige = Number(ownerState?.prestige) || 0;
+        if (ownerId && ownedCharacterIds.has(ownerId) && prestige >= 1) {
+          ownedPerkIds.add(perk.id);
+        }
+      });
+      return {
+        ownedCharacterIds,
+        ownedPerkIds,
+        isCharacterOwned: (id) => ownedCharacterIds.has(id),
+        isPerkOwned: (id) => ownedPerkIds.has(id),
+        getCharacterPrestige: (id) => Number(characterStates?.[id]?.prestige) || 0,
+        getDerivedPerkTier: (id) => {
+          const perk = (perks || []).find(entry => entry.id === id);
+          if (!perk) return 0;
+          if (!perk.owner || perk.owner === 'All Killers' || perk.owner === 'All Survivors') return 3;
+          const ownerId = characterNameToId[perk.owner];
+          if (!ownerId || !ownedCharacterIds.has(ownerId)) return 0;
+          return Math.min(3, Number(characterStates?.[ownerId]?.prestige) || 0);
+        },
+        isAddonOwned: (addon) => {
+          if (!addon) return false;
+          if (addon.role === 'killer') {
+            const ownerId = characterNameToId[addon.killerName];
+            return ownerId ? ownedCharacterIds.has(ownerId) : false;
+          }
+          return true;
+        }
+      };
+    };
+    const WORLDLE_METADATA = typeof WORLDLE_DATA === 'undefined' ? { aliases: {}, genders: {}, emojiClues: {} } : WORLDLE_DATA;
+    const WORLDLE_MODE_META = {
+      classic: { label: 'Classic', queue: 'daily', accent: '#ef4444', description: 'Guess today\'s killer from offline stats and metadata.' },
+      emoji: { label: 'Emoji', queue: 'daily', accent: '#f59e0b', description: 'Decode three emoji clues to identify the killer.' },
+      survivorPerk: { label: 'Survivor Perk', queue: 'flex', accent: '#38bdf8', description: 'Identify a survivor perk from its icon.' },
+      killerPerk: { label: 'Killer Perk', queue: 'flex', accent: '#ef4444', description: 'Identify a killer perk from its icon.' },
+      teachables: { label: 'Teachables', queue: 'flex', accent: '#a855f7', description: 'Guess the three killer teachable perks for the featured killer.' }
+    };
+    const getWorldleDateKey = (date = new Date()) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+    const hashString = (value = '') => {
+      let hash = 2166136261;
+      for (let i = 0; i < value.length; i += 1) {
+        hash ^= value.charCodeAt(i);
+        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+      }
+      return Math.abs(hash >>> 0);
+    };
+    const pickDeterministicEntry = (items = [], seed = '') => {
+      if (!Array.isArray(items) || items.length === 0) return null;
+      return items[hashString(seed) % items.length];
+    };
+    const shuffleBySeed = (items = [], seed = '') => {
+      const copy = [...items];
+      let localSeed = hashString(seed) || 1;
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        localSeed = (localSeed * 1664525 + 1013904223) % 4294967296;
+        const j = localSeed % (i + 1);
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    };
+    const buildWorldleAliasMap = (killer) => {
+      const aliases = new Set([
+        killer.name,
+        killer.name.replace(/^The\s+/, ''),
+        killer.realName || '',
+        ...((WORLDLE_METADATA.aliases || {})[killer.name] || [])
+      ]);
+      return [...aliases]
+        .map(alias => alias && String(alias).trim())
+        .filter(Boolean);
+    };
+    const buildWorldleKillerCatalog = (killers = []) => killers.map((killer) => {
+      const stats = KILLER_STATS[killer.name] || {};
+      const release = RELEASE_INFO_MAP[killer.name] || {};
+      const aliases = buildWorldleAliasMap(killer);
+      return {
+        id: killer.id,
+        name: killer.name,
+        realName: killer.realName || '',
+        difficulty: killer.difficulty || 'unknown',
+        height: stats.height || 'Unknown',
+        speed: stats.speed || 'Unknown',
+        terrorRadius: stats.terrorRadius || 'Unknown',
+        releaseYear: release.year || null,
+        licensed: release.licensed === true,
+        gender: (WORLDLE_METADATA.genders || {})[killer.name] || 'Other',
+        chapter: release.chapter || '',
+        displayDate: release.displayDate || '',
+        image: killer.image,
+        aliases,
+        aliasTokens: aliases.map(alias => normalizeGuessToken(alias)),
+        emojis: ((WORLDLE_METADATA.emojiClues || {})[killer.name] || []).slice(0, 3)
+      };
+    }).filter(Boolean);
+    const buildWorldlePerkCatalog = (perks = [], type = 'Survivor') => (
+      perks
+        .filter(perk => perk.type === type)
+        .map(perk => ({
+          id: perk.id,
+          name: perk.name,
+          owner: perk.owner || '',
+          type: perk.type,
+          image: perk.image,
+          aliasTokens: [normalizeGuessToken(perk.name)]
+        }))
+    );
+    const buildTeachableCatalog = (killers = [], perks = []) => (
+      killers.map((killer) => ({
+        id: killer.id,
+        name: killer.name,
+        image: killer.image,
+        aliases: buildWorldleAliasMap(killer),
+        aliasTokens: buildWorldleAliasMap(killer).map(alias => normalizeGuessToken(alias)),
+        teachables: perks
+          .filter(perk => perk.owner === killer.name)
+          .map(perk => ({ id: perk.id, name: perk.name, image: perk.image }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      }))
+      .filter(entry => entry.teachables.length === 3)
+    );
+    const histogramBucketKey = (guessCount) => {
+      const n = Number(guessCount) || 0;
+      if (n <= 0) return '1';
+      if (n >= 11) return '11+';
+      return String(n);
+    };
+    const recordWorldleResult = (state, { mode, queue, result }) => {
+      const next = normalizeWorldleState(state);
+      const bucket = next.stats[mode]?.[queue] || createWorldleStatsBucket();
+      bucket.played += 1;
+      if (result.solved) {
+        bucket.solved += 1;
+        bucket.totalSolvedGuesses += result.guessCount;
+        bucket.averageGuesses = Number((bucket.totalSolvedGuesses / bucket.solved).toFixed(2));
+        bucket.histogram[histogramBucketKey(result.guessCount)] += 1;
+      }
+      if (queue === 'daily') {
+        bucket.currentStreak = result.solved ? bucket.currentStreak + 1 : 0;
+        bucket.bestStreak = Math.max(bucket.bestStreak, bucket.currentStreak);
+      }
+      next.stats[mode][queue] = bucket;
+      const history = Array.isArray(next.history[mode]?.[queue]) ? next.history[mode][queue] : [];
+      next.history[mode][queue] = [result, ...history].slice(0, 30);
+      return next;
+    };
+    const createDailyWorldleSession = (mode, catalog = [], dateKey = getWorldleDateKey()) => {
+      const target = pickDeterministicEntry(catalog, `${mode}:${dateKey}`);
+      return {
+        dateKey,
+        targetId: target?.id || null,
+        guesses: [],
+        solvedIds: [],
+        revealedClues: mode === 'emoji' ? 1 : 0,
+        solved: false,
+        failed: false,
+        completedAt: null
+      };
+    };
+    const createPracticeWorldleSession = (mode, catalog = [], seedKey = getWorldleDateKey(), round = 0) => {
+      const queue = shuffleBySeed(catalog.map(item => item.id), `${mode}:practice:${seedKey}:${round}`);
+      return {
+        seedKey,
+        round,
+        queue,
+        targetId: queue[0] || null,
+        guesses: [],
+        solvedIds: [],
+        revealedClues: 0,
+        solved: false,
+        failed: false,
+        completedAt: null
+      };
+    };
+    const ensureWorldleSession = ({ state, mode, queue, catalog = [], dateKey = getWorldleDateKey() }) => {
+      const next = normalizeWorldleState(state);
+      if (queue === 'daily') {
+        const existing = next.daily[mode];
+        if (existing && existing.dateKey === dateKey && existing.targetId) {
+          return { state: next, session: existing };
+        }
+        const created = createDailyWorldleSession(mode, catalog, dateKey);
+        next.daily[mode] = created;
+        return { state: next, session: created };
+      }
+      const existing = next.practice[mode];
+      if (existing && existing.targetId) {
+        return { state: next, session: existing };
+      }
+      const created = createPracticeWorldleSession(mode, catalog, dateKey, existing?.round || 0);
+      next.practice[mode] = created;
+      return { state: next, session: created };
+    };
+    const advancePracticeWorldleSession = ({ mode, state, catalog = [], dateKey = getWorldleDateKey() }) => {
+      const next = normalizeWorldleState(state);
+      const current = next.practice[mode] || createPracticeWorldleSession(mode, catalog, dateKey, 0);
+      let queue = Array.isArray(current.queue) ? current.queue.filter(id => id !== current.targetId) : [];
+      let round = Number(current.round) || 0;
+      if (queue.length === 0) {
+        round += 1;
+        queue = shuffleBySeed(catalog.map(item => item.id), `${mode}:practice:${dateKey}:${round}`);
+      }
+      next.practice[mode] = {
+        seedKey: dateKey,
+        round,
+        queue,
+        targetId: queue[0] || null,
+        guesses: [],
+        solvedIds: [],
+        revealedClues: 0,
+        solved: false,
+        failed: false,
+        completedAt: null
+      };
+      return next;
+    };
+    const buildWorldleResultEntry = ({ mode, queue, target, guessCount, solved, dateKey }) => ({
+      mode,
+      queue,
+      puzzleKey: dateKey,
+      targetSnapshot: target ? {
+        id: target.id || null,
+        name: target.name || '',
+        owner: target.owner || '',
+        type: target.type || '',
+        image: target.image || ''
+      } : null,
+      guessCount,
+      solved,
+      failed: !solved,
+      completedAt: new Date().toISOString()
+    });
+    const resolveWorldleGuess = (catalog = [], input = '') => {
+      const token = normalizeGuessToken(input);
+      if (!token) return null;
+      return catalog.find(entry => Array.isArray(entry.aliasTokens) && entry.aliasTokens.includes(token)) || null;
+    };
+    const countWorldleWrongGuesses = (session) => (
+      Array.isArray(session?.guesses) ? session.guesses.filter(guess => guess && guess.correct === false && guess.duplicate !== true).length : 0
+    );
+    const createPerkSnapshotsFromBuild = (build, perksById = {}) => {
+      if (!build || !Array.isArray(build.perks)) return [];
+      return build.perks
+        .map((perk) => {
+          const resolved = (perk?.id && perksById[perk.id]) || null;
+          const id = resolved?.id || perk?.id || null;
+          const name = resolved?.name || perk?.name || '';
+          if (!name && !id) return null;
+          return {
+            id,
+            name: name || id,
+            type: resolved?.type || '',
+            owner: resolved?.owner || ''
+          };
+        })
+        .filter(Boolean);
+    };
+    const normalizeMatchRecord = (match, lookups = {}) => {
+      if (!match || typeof match !== 'object') return null;
+      const charactersById = lookups.charactersById || {};
+      const mapsById = lookups.mapsById || {};
+      const mapNameLookup = lookups.mapNameLookup || {};
+      const buildsById = lookups.buildsById || {};
+      const perksById = lookups.perksById || {};
+      const linkedCharacter = match.characterId ? charactersById[match.characterId] : null;
+      const matchedMap = (match.mapId && mapsById[match.mapId]) || (match.mapNameSnapshot && mapNameLookup[(match.mapNameSnapshot || '').toLowerCase()]) || (match.map && mapNameLookup[(match.map || '').toLowerCase()]) || null;
+      const linkedBuild = match.buildId ? buildsById[match.buildId] : null;
+      const mapNameSnapshot = matchedMap?.name || match.mapNameSnapshot || match.map || '';
+      const mapId = matchedMap?.id || match.mapId || null;
+      return {
+        ...match,
+        id: match.id || uuid(),
+        role: roleFromString(match.role),
+        buildId: match.buildId || '',
+        characterId: match.characterId || '',
+        characterName: linkedCharacter?.name || match.characterName || match.characterSnapshot?.name || '',
+        mapId,
+        map: mapNameSnapshot,
+        mapNameSnapshot,
+        characterSnapshot: {
+          id: linkedCharacter?.id || match.characterSnapshot?.id || match.characterId || null,
+          name: linkedCharacter?.name || match.characterSnapshot?.name || match.characterName || 'Any',
+          role: linkedCharacter?.role || roleFromString(match.characterSnapshot?.role || match.role)
+        },
+        buildSnapshot: {
+          id: linkedBuild?.id || match.buildSnapshot?.id || match.buildId || null,
+          name: linkedBuild?.name || match.buildSnapshot?.name || ''
+        },
+        perkSnapshots: Array.isArray(match.perkSnapshots) && match.perkSnapshots.length > 0
+          ? normalizePerkSnapshots(match.perkSnapshots)
+          : [],
+        createdAt: match.createdAt || match.date || new Date().toISOString(),
+        updatedAt: match.updatedAt || match.date || new Date().toISOString()
+      };
+    };
+    const normalizeMatchRecords = (records, lookups = {}) => (
+      Array.isArray(records)
+        ? records.map(record => normalizeMatchRecord(record, lookups)).filter(Boolean)
+        : []
+    );
+    const createMatchSnapshot = (form, lookups = {}) => {
+      const charactersById = lookups.charactersById || {};
+      const mapsById = lookups.mapsById || {};
+      const buildsById = lookups.buildsById || {};
+      const perksById = lookups.perksById || {};
+      const selectedCharacter = form.characterId ? charactersById[form.characterId] : null;
+      const selectedMap = form.mapId ? mapsById[form.mapId] : null;
+      const selectedBuild = form.buildId ? buildsById[form.buildId] : null;
+      const preservedPerkSnapshots = normalizePerkSnapshots(form.perkSnapshots);
+      return {
+        ...form,
+        role: roleFromString(form.role),
+        characterName: selectedCharacter?.name || form.characterName || '',
+        mapId: selectedMap?.id || form.mapId || null,
+        map: selectedMap?.name || form.mapNameSnapshot || form.map || '',
+        mapNameSnapshot: selectedMap?.name || form.mapNameSnapshot || form.map || '',
+        characterSnapshot: {
+          id: selectedCharacter?.id || form.characterSnapshot?.id || form.characterId || null,
+          name: selectedCharacter?.name || form.characterSnapshot?.name || form.characterName || 'Any',
+          role: selectedCharacter?.role || roleFromString(form.characterSnapshot?.role || form.role)
+        },
+        buildSnapshot: {
+          id: selectedBuild?.id || form.buildSnapshot?.id || form.buildId || null,
+          name: selectedBuild?.name || form.buildSnapshot?.name || ''
+        },
+        perkSnapshots: selectedBuild
+          ? createPerkSnapshotsFromBuild(selectedBuild, perksById)
+          : preservedPerkSnapshots
+      };
+    };
+    const isMatchWin = (match, prefs = {}) => {
+      const killThreshold = prefs?.killerWinThreshold ?? 2;
+      if (match.role === 'Killer') return (Number(match.kills) || 0) >= killThreshold && !match.dc;
+      const outcome = (match.outcome || '').toLowerCase();
+      return outcome.includes('escape');
+    };
+    const getMatchCharacterLabel = (match) => match?.characterSnapshot?.name || match?.characterName || 'Any';
+    const getMatchBuildLabel = (match) => match?.buildSnapshot?.name || 'Unlinked Build';
+    const getMatchMapLabel = (match) => match?.mapNameSnapshot || match?.map || 'Unknown Map';
     const formatDate = (iso) => {
       if (!iso) return '';
       const d = new Date(iso);
@@ -1739,7 +2328,7 @@
         </div>
       );
     };
-    const BottomSheet = ({ isOpen, onClose, perk, settings = {} }) => {
+    const BottomSheet = ({ isOpen, onClose, perk, settings = {}, noteValue = '', onNoteChange }) => {
       const [dragY, setDragY] = useState(0);
       const [isDragging, setIsDragging] = useState(false);
       const startYRef = useRef(0);
@@ -1836,6 +2425,12 @@
                   </div>
                 </div>
               )}
+              <NotesEditor
+                title="Perk Notes"
+                value={noteValue}
+                onChange={onNoteChange}
+                placeholder="Matchups, builds, or reminders for this perk..."
+              />
             </div>
           </div>
         </div>
@@ -1852,6 +2447,22 @@
             {lines.map((line, idx) => <li key={idx}>{line}</li>)}
           </ul>
         </div>
+      </div>
+    );
+    const NotesEditor = ({ title = 'Personal Notes', value = '', onChange, placeholder = 'Write anything useful here...' }) => (
+      <div className="mt-4 pt-4 border-t border-white/10">
+        <div className="flex items-center gap-2 mb-2">
+          <Icons.BookOpen width={14} height={14} className="text-zinc-400" />
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{title}</p>
+        </div>
+        <textarea
+          value={value}
+          onChange={e => onChange && onChange(e.target.value)}
+          rows={4}
+          placeholder={placeholder}
+          className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+        />
+        <p className="text-[10px] text-zinc-600 mt-1">Stored locally only. Not included in share codes.</p>
       </div>
     );
     const DEFAULT_IMAGES = {
@@ -2432,6 +3043,7 @@
       "The Lich": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
       "The Dark Lord": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Houndmaster": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
+      "The Ghoul": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
       "The Animatronic": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Krasue": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
       "The First": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" }
@@ -2651,13 +3263,18 @@
       matchlog: [
         { action: 'Log a Match', description: 'Fill in role, character, build, map, outcome, and performance metrics to save a match entry.' },
         { action: 'Edit / Delete', description: 'Tap Edit to modify a logged match, or Delete to remove it (with confirmation).' },
-        { action: 'Stats & Trends', description: 'Performance tiles update automatically based on your filtered match history.' },
+        { action: 'Progression Analytics', description: 'Use the shortcut button to open the analytics tab in Progression for deeper breakdowns.' },
         { action: 'Link Builds', description: 'Associate a saved build with each match to track its performance over time.' },
       ],
       progression: [
         { action: 'Mark Owned', description: 'Toggle the checkbox to mark a character as owned and set their prestige level.' },
-        { action: 'Unlock Perks', description: 'Check off perks as unlocked, set their tier (1–3), and flag core perks for coverage tracking.' },
+        { action: 'Prestige Unlocks', description: 'Teachable perks are derived from roster prestige. Owned characters start contributing their personal perks at prestige 1.' },
         { action: 'Challenges', description: 'Create custom challenges with tags, link a build, and move them between Planned → Active → Completed.' },
+      ],
+      worldle: [
+        { action: 'Daily Reset', description: 'Classic, Emoji, and daily perk/teachable puzzles reset at local midnight on your device.' },
+        { action: 'Practice Queue', description: 'Perk and Teachables modes include an infinite practice queue that avoids repeats until the pool is exhausted.' },
+        { action: 'Local Stats', description: 'Histograms, streaks, averages, and recent results are stored locally only.' },
       ],
       achievements: [
         { action: 'Toggle Completion', description: 'Tap an achievement row to mark it as completed or not completed.' },
@@ -2910,7 +3527,7 @@
         </div>
       );
     };
-    const ChaosShuffleView = ({ onBack, perks, killers = [], survivors = [], items = [], addons = [], offerings = [], settings = {} }) => {
+    const ChaosShuffleView = ({ onBack, perks, killers = [], survivors = [], items = [], addons = [], offerings = [], settings = {}, ownedOnlyGlobal = false }) => {
       const [role, setRole] = useState('Survivor');
       const [isSpinning, setIsSpinning] = useState(false);
       const [randomizeCharacter, setRandomizeCharacter] = useState(true);
@@ -2983,7 +3600,12 @@
           if (randomizePerks) {
             const ownedNames = characters.filter(c => ownedCharacters.has(c.id)).map(c => c.name);
             const previousPerkIds = new Set(previousPerks.map(p => p?.id).filter(Boolean));
-            const perkPool = perks.filter(p => p.type === role && ownedNames.includes(p.owner) && !previousPerkIds.has(p.id));
+            const perkPool = perks.filter(p => {
+              if (p.type !== role || previousPerkIds.has(p.id)) return false;
+              if (ownedOnlyGlobal) return true;
+              if (!p.owner) return true;
+              return ownedNames.includes(p.owner);
+            });
             const shuffledPerks = [...perkPool].sort(() => 0.5 - Math.random());
             newResult.perks = [
               shuffledPerks[0] || null,
@@ -4141,7 +4763,7 @@
                           <p className="text-white font-bold text-sm">{item.name}</p>
                           <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Map</p>
                         </div>
-                        <button onClick={() => setView('realms')} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open maps</button>
+                        <button onClick={() => setView('realms', { search: item.name })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open maps</button>
                       </div>
                     );
                   }
@@ -4151,7 +4773,7 @@
                         <p className="text-white font-bold">{item.name}</p>
                         <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Challenge</p>
                         {item.tags?.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{item.tags.map(t => <span key={t} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300 uppercase tracking-wider">{t}</span>)}</div>}
-                        <button onClick={() => setView('progression')} className="mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open challenges</button>
+                        <button onClick={() => setView('progression', { tab: 'challenges' })} className="mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open challenges</button>
                       </div>
                     );
                   }
@@ -4219,7 +4841,7 @@
                           <p className="text-white font-bold text-sm">{item.name}</p>
                           <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Game Icon • <span style={{ color }}>{item.category}</span></p>
                         </div>
-                        <button onClick={() => setView('statusEffects')} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
+                        <button onClick={() => setView('gameIcons')} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
                       </div>
                     );
                   }
@@ -4591,8 +5213,11 @@
         </div>
       );
     };
-    const RealmsView = ({ onBack, maps, onViewLayout }) => {
-      const [mapSearch, setMapSearch] = useState('');
+    const RealmsView = ({ onBack, maps, onViewLayout, initialSearch = '' }) => {
+      const [mapSearch, setMapSearch] = useState(initialSearch || '');
+      useEffect(() => {
+        setMapSearch(initialSearch || '');
+      }, [initialSearch]);
       const filteredMaps = useMemo(() => {
         const term = mapSearch.toLowerCase();
         return (maps || []).filter(mp => !term || (mp.name || '').toLowerCase().includes(term));
@@ -4639,15 +5264,13 @@
                         <div className="flex-1">
                           <p className="text-white font-bold text-sm">{mp.name}</p>
                           <p className="text-zinc-500 text-xs mt-1 line-clamp-2 leading-relaxed">{mp.description}</p>
-                          {hasLayout && (
-                            <button
-                              onClick={() => onViewLayout && onViewLayout(mp)}
-                              className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex items-center gap-1"
-                            >
-                              <Icons.Map width={12} height={12} />
-                              View Layout
-                            </button>
-                          )}
+                          <button
+                            onClick={() => onViewLayout && onViewLayout(mp)}
+                            className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex items-center gap-1"
+                          >
+                            <Icons.Map width={12} height={12} />
+                            {hasLayout ? 'Open Details + Layout' : 'Open Details'}
+                          </button>
                         </div>
                       </div>
                     );
@@ -6034,14 +6657,16 @@
         </div>
       );
     };
-    const MatchLogView = ({ onBack, matches = [], setMatches, killers = [], survivors = [], builds = [], prefs, setPrefs, onBuildUsed }) => {
+    const MatchLogView = ({ onBack, matches = [], setMatches, killers = [], survivors = [], builds = [], maps = [], prefs, setPrefs, onBuildUsed, onOpenAnalytics }) => {
+      const lookups = useMemo(() => buildDataLookups({ killers, survivors, builds, maps }), [killers, survivors, builds, maps]);
       const blankForm = (role = prefs?.lastRole || 'Survivor') => ({
         id: null,
         role,
         date: new Date().toISOString().slice(0, 16),
         characterId: prefs?.lastCharacterId || '',
         buildId: prefs?.lastBuildId || '',
-        map: '',
+        mapId: '',
+        mapNameSnapshot: '',
         outcome: role === 'Killer' ? '3 Kills' : 'Escaped Gate',
         kills: role === 'Killer' ? 3 : 0,
         performance: '',
@@ -6050,60 +6675,94 @@
         hooks: '',
         gens: '',
         notes: '',
-        dc: false
+        dc: false,
+        perkSnapshots: []
       });
       const [form, setForm] = useState(blankForm());
       const [editingId, setEditingId] = useState(null);
-      const [filters, setFilters] = useState({ role: 'All', character: 'All', map: '', build: 'All', from: '', to: '' });
+      const [filters, setFilters] = useState({ role: 'All', character: 'All', build: 'All', map: 'All', from: '', to: '' });
       const characters = form.role === 'Killer' ? killers : survivors;
-      const buildsForRole = builds.filter(b => b.role === form.role);
+      const buildsForRole = useMemo(() => builds.filter(build => build.role === form.role), [builds, form.role]);
+      const mapOptions = useMemo(() => {
+        const known = (maps || []).map(map => ({ value: map.id, label: map.name }));
+        const legacy = [];
+        const seen = new Set(known.map(option => option.label.toLowerCase()));
+        matches.forEach((match) => {
+          const label = getMatchMapLabel(match);
+          if (!label || seen.has(label.toLowerCase())) return;
+          seen.add(label.toLowerCase());
+          legacy.push({ value: `legacy:${label}`, label });
+        });
+        return [...known, ...legacy];
+      }, [maps, matches]);
+      const characterOptions = useMemo(() => {
+        const seen = new Set();
+        const result = [];
+        [...killers, ...survivors].forEach((character) => {
+          if (!character?.id || seen.has(character.id)) return;
+          seen.add(character.id);
+          result.push({ value: character.id, label: character.name });
+        });
+        matches.forEach((match) => {
+          const snapshotId = match?.characterSnapshot?.id;
+          const snapshotName = getMatchCharacterLabel(match);
+          if (!snapshotId || !snapshotName || seen.has(snapshotId)) return;
+          seen.add(snapshotId);
+          result.push({ value: snapshotId, label: snapshotName });
+        });
+        return result.sort((a, b) => a.label.localeCompare(b.label));
+      }, [killers, survivors, matches]);
+      const buildOptions = useMemo(() => {
+        const seen = new Set();
+        const result = [];
+        builds.forEach((build) => {
+          if (!build?.id || seen.has(build.id)) return;
+          seen.add(build.id);
+          result.push({ value: build.id, label: build.name });
+        });
+        matches.forEach((match) => {
+          const snapshotId = match?.buildSnapshot?.id;
+          const snapshotName = getMatchBuildLabel(match);
+          if (!snapshotId || !snapshotName || seen.has(snapshotId)) return;
+          seen.add(snapshotId);
+          result.push({ value: snapshotId, label: snapshotName });
+        });
+        return result.sort((a, b) => a.label.localeCompare(b.label));
+      }, [builds, matches]);
       useEffect(() => {
-        setForm(blankForm(prefs?.lastRole || 'Survivor'));
-      }, [prefs?.lastRole]);
-      const isWin = (match) => {
-        const killThreshold = prefs?.killerWinThreshold ?? 2;
-        if (match.role === 'Killer') return (Number(match.kills) || 0) >= killThreshold && !match.dc;
-        const outcome = (match.outcome || '').toLowerCase();
-        return outcome.includes('escape');
-      };
+        if (!editingId) {
+          setForm(blankForm(prefs?.lastRole || 'Survivor'));
+        }
+      }, [prefs?.lastRole, editingId]);
       const filteredMatches = useMemo(() => {
-        return matches.filter(m => {
-          const inRole = filters.role === 'All' || m.role === filters.role;
-          const inChar = filters.character === 'All' || m.characterId === filters.character;
-          const inBuild = filters.build === 'All' || m.buildId === filters.build;
-          const inMap = !filters.map || (m.map || '').toLowerCase().includes(filters.map.toLowerCase());
-          const inFrom = !filters.from || new Date(m.date) >= new Date(filters.from);
-          const inTo = !filters.to || new Date(m.date) <= new Date(filters.to + 'T23:59');
+        return matches.filter((match) => {
+          const mapFilterValue = match.mapId || (getMatchMapLabel(match) ? `legacy:${getMatchMapLabel(match)}` : 'All');
+          const buildFilterValue = match.buildSnapshot?.id || match.buildId || 'All';
+          const characterFilterValue = match.characterSnapshot?.id || match.characterId || 'All';
+          const inRole = filters.role === 'All' || match.role === filters.role;
+          const inChar = filters.character === 'All' || characterFilterValue === filters.character;
+          const inBuild = filters.build === 'All' || buildFilterValue === filters.build;
+          const inMap = filters.map === 'All' || mapFilterValue === filters.map;
+          const inFrom = !filters.from || new Date(match.date) >= new Date(filters.from);
+          const inTo = !filters.to || new Date(match.date) <= new Date(filters.to + 'T23:59');
           return inRole && inChar && inBuild && inMap && inFrom && inTo;
         });
       }, [matches, filters]);
-      const summarizeBy = (list, keyFn) => {
-        const bucket = {};
-        list.forEach(m => {
-          const key = keyFn(m);
-          if (!key) return;
-          const entry = bucket[key] || { key, total: 0, wins: 0, perf: 0, last: null };
-          entry.total += 1;
-          entry.wins += isWin(m) ? 1 : 0;
-          entry.perf += Number(m.performance) || 0;
-          entry.last = entry.last && new Date(entry.last) > new Date(m.date) ? entry.last : m.date;
-          bucket[key] = entry;
-        });
-        return Object.values(bucket).map(e => ({
-          ...e,
-          rate: e.total ? Math.round((e.wins / e.total) * 100) : 0,
-          avgPerf: e.total ? (e.perf / e.total).toFixed(1) : '-'
+      const changeRole = (role) => {
+        setForm((current) => ({
+          ...blankForm(role),
+          date: current.date
         }));
       };
-      const characterStats = summarizeBy(filteredMatches, m => m.characterId || m.characterName || '');
-      const buildStats = summarizeBy(filteredMatches.filter(m => m.buildId), m => m.buildId);
-      const mapStats = summarizeBy(filteredMatches, m => m.map || 'Unknown Map');
-      const buildName = (id) => builds.find(b => b.id === id)?.name || 'Unlinked Build';
-      const characterName = (id) => [...killers, ...survivors].find(c => c.id === id)?.name || 'Any';
       const handleSubmit = () => {
         const now = new Date().toISOString();
-        const payload = { ...form, id: editingId || uuid(), createdAt: form.createdAt || now, updatedAt: now };
-        setMatches(prev => editingId ? prev.map(m => m.id === editingId ? payload : m) : [payload, ...prev]);
+        const payload = createMatchSnapshot({
+          ...form,
+          id: editingId || uuid(),
+          createdAt: form.createdAt || now,
+          updatedAt: now
+        }, lookups);
+        setMatches(prev => editingId ? prev.map(match => match.id === editingId ? payload : match) : [payload, ...prev]);
         setPrefs && setPrefs({ lastRole: payload.role, lastCharacterId: payload.characterId, lastBuildId: payload.buildId || null });
         onBuildUsed && payload.buildId && onBuildUsed(payload.buildId);
         setEditingId(null);
@@ -6111,31 +6770,37 @@
       };
       const editMatch = (match) => {
         setEditingId(match.id);
-        setForm({ ...match });
+        setForm({
+          ...blankForm(match.role),
+          ...match,
+          mapId: match.mapId || '',
+          mapNameSnapshot: match.mapNameSnapshot || match.map || '',
+          perkSnapshots: normalizePerkSnapshots(match.perkSnapshots)
+        });
         setPrefs && setPrefs({ lastRole: match.role, lastCharacterId: match.characterId, lastBuildId: match.buildId || null });
       };
       const deleteMatch = (id) => {
         if (!confirm('Delete this match?')) return;
-        setMatches(prev => prev.filter(m => m.id !== id));
+        setMatches(prev => prev.filter(match => match.id !== id));
       };
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
-          <Header title="Match Log & Stats" subtitle="Manually track games and see trends" onBack={onBack} infoTips={VIEW_TIPS.matchlog} />
+          <Header title="Match Log" subtitle="Log games with stable build and map snapshots" onBack={onBack} infoTips={VIEW_TIPS.matchlog} />
           <InfoCallout lines={[
-            'Pick Survivor or Killer to swap available characters and outcomes; link a saved build to track its results.',
-            'Fill outcomes, kills/gens/hooks, and notes; the DC toggle marks rage quits or early exits.',
-            'Filters on the right narrow the history; the performance tiles update based on the filtered list.'
+            'Pick Survivor or Killer, link a saved build, and choose a bundled map so snapshots stay stable over time.',
+            'Match analytics now live in Progression > Analytics; this screen stays focused on logging, filtering, and editing history.',
+            'Editing a build later does not rewrite older match records because the match stores its own build, perk, character, and map snapshots.'
           ]} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
             <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10 lg:col-span-2">
               <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <button
-                  onClick={() => setForm(f => ({ ...f, role: 'Survivor' }))}
+                  onClick={() => changeRole('Survivor')}
                   className="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
                   style={form.role === 'Survivor' ? { background: '#0a0a0a', border: '2px solid #38bdf8', color: '#38bdf8' } : { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', color: '#a1a1aa' }}
                 >Survivor</button>
                 <button
-                  onClick={() => setForm(f => ({ ...f, role: 'Killer' }))}
+                  onClick={() => changeRole('Killer')}
                   className="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
                   style={form.role === 'Killer' ? { background: '#0a0a0a', border: '2px solid #ef4444', color: '#ef4444' } : { background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', color: '#a1a1aa' }}
                 >Killer</button>
@@ -6150,27 +6815,30 @@
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Character</p>
                   <select value={form.characterId} onChange={e => setForm(f => ({ ...f, characterId: e.target.value }))} className="themed-select w-full text-sm">
                     <option value="">Any</option>
-                    {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {characters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Build</p>
                   <select value={form.buildId || ''} onChange={e => setForm(f => ({ ...f, buildId: e.target.value }))} className="themed-select w-full text-sm">
                     <option value="">Unlinked</option>
-                    {buildsForRole.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {buildsForRole.map(build => <option key={build.id} value={build.id}>{build.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Map</p>
-                  <input value={form.map} onChange={e => setForm(f => ({ ...f, map: e.target.value }))} placeholder="The Game, Shelter Woods..." className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500" />
+                  <select value={form.mapId || ''} onChange={e => setForm(f => ({ ...f, mapId: e.target.value }))} className="themed-select w-full text-sm">
+                    <option value="">Unknown / not set</option>
+                    {(maps || []).map((map) => <option key={map.id} value={map.id}>{map.name}</option>)}
+                  </select>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Outcome</p>
                   <select value={form.outcome} onChange={e => setForm(f => ({ ...f, outcome: e.target.value }))} className="themed-select w-full text-sm">
                     {form.role === 'Killer' ? (
-                      ['0 Kills', '1 Kill', '2 Kills', '3 Kills', '4 Kills', 'DC', 'Early Surrender'].map(o => <option key={o} value={o}>{o}</option>)
+                      ['0 Kills', '1 Kill', '2 Kills', '3 Kills', '4 Kills', 'DC', 'Early Surrender'].map(option => <option key={option} value={option}>{option}</option>)
                     ) : (
-                      ['Escaped Gate', 'Escaped Hatch', 'Died', 'DC'].map(o => <option key={o} value={o}>{o}</option>)
+                      ['Escaped Gate', 'Escaped Hatch', 'Died', 'DC'].map(option => <option key={option} value={option}>{option}</option>)
                     )}
                   </select>
                 </div>
@@ -6208,7 +6876,7 @@
               </div>
             </div>
             <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10 space-y-3">
-              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Filters</p>
+              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">History Filters</p>
               <select value={filters.role} onChange={e => setFilters(f => ({ ...f, role: e.target.value }))} className="themed-select w-full text-sm">
                 <option value="All">All roles</option>
                 <option value="Killer">Killer</option>
@@ -6216,13 +6884,16 @@
               </select>
               <select value={filters.character} onChange={e => setFilters(f => ({ ...f, character: e.target.value }))} className="themed-select w-full text-sm">
                 <option value="All">Any character</option>
-                {[...killers, ...survivors].map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {characterOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
               <select value={filters.build} onChange={e => setFilters(f => ({ ...f, build: e.target.value }))} className="themed-select w-full text-sm">
                 <option value="All">Any build</option>
-                {builds.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                {buildOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-              <input value={filters.map} onChange={e => setFilters(f => ({ ...f, map: e.target.value }))} placeholder="Filter by map" className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500" />
+              <select value={filters.map} onChange={e => setFilters(f => ({ ...f, map: e.target.value }))} className="themed-select w-full text-sm">
+                <option value="All">Any map</option>
+                {mapOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
               <div className="grid grid-cols-2 gap-2">
                 <input type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white" />
                 <input type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white" />
@@ -6247,142 +6918,13 @@
                   <p className="text-[9px] text-zinc-600 mt-1">Survivor: Escaped = Win</p>
                 </div>
               </div>
+              <button
+                onClick={onOpenAnalytics}
+                className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-zinc-200 hover:bg-white/10 transition-colors"
+              >
+                Open Progression Analytics
+              </button>
               <div className="text-xs text-zinc-400">Showing {filteredMatches.length} / {matches.length} logged matches.</div>
-            </div>
-          </div>
-          {/* Overall Stats Summary */}
-          {filteredMatches.length > 0 && (() => {
-            const totalWins = filteredMatches.filter(isWin).length;
-            const winRate = Math.round((totalWins / filteredMatches.length) * 100);
-            const survMatches = filteredMatches.filter(m => m.role === 'Survivor');
-            const killMatches = filteredMatches.filter(m => m.role === 'Killer');
-            const survWinRate = survMatches.length ? Math.round((survMatches.filter(isWin).length / survMatches.length) * 100) : 0;
-            const killWinRate = killMatches.length ? Math.round((killMatches.filter(isWin).length / killMatches.length) * 100) : 0;
-            const avgKills = killMatches.length ? (killMatches.reduce((s, m) => s + (Number(m.kills) || 0), 0) / killMatches.length).toFixed(1) : '0';
-            // Best maps calculation
-            const survMapStats = {};
-            survMatches.forEach(m => {
-              const map = m.map || 'Unknown';
-              if (!survMapStats[map]) survMapStats[map] = { wins: 0, total: 0 };
-              survMapStats[map].total++;
-              if (isWin(m)) survMapStats[map].wins++;
-            });
-            const bestSurvMap = Object.entries(survMapStats).sort((a, b) => (b[1].wins / b[1].total) - (a[1].wins / a[1].total))[0];
-            const killMapStats = {};
-            killMatches.forEach(m => {
-              const map = m.map || 'Unknown';
-              if (!killMapStats[map]) killMapStats[map] = { wins: 0, total: 0 };
-              killMapStats[map].total++;
-              if (isWin(m)) killMapStats[map].wins++;
-            });
-            const bestKillMap = Object.entries(killMapStats).sort((a, b) => (b[1].wins / b[1].total) - (a[1].wins / a[1].total))[0];
-            return (
-              <div className="space-y-3 mb-4">
-                {/* Row 1: Main Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/40 border border-white/10 text-center">
-                    <p className="text-3xl font-bold text-white">{filteredMatches.length}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Total Matches</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/40 border border-white/10 text-center">
-                    <p className="text-3xl font-bold" style={{ color: winRate >= 50 ? '#22c55e' : '#ef4444' }}>{winRate}%</p>
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Overall Win Rate</p>
-                    <div className="mt-2 h-2 rounded-full bg-zinc-800 overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${winRate}%`, background: winRate >= 50 ? 'linear-gradient(90deg, #22c55e, #4ade80)' : 'linear-gradient(90deg, #ef4444, #f87171)' }} />
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-900/40 to-zinc-900/60 border border-blue-500/30 text-center">
-                    <p className="text-2xl font-bold text-blue-400">{survWinRate}%</p>
-                    <p className="text-[10px] uppercase tracking-wider text-blue-300/60 font-bold mt-1">Survivor Win Rate</p>
-                    <p className="text-[9px] text-zinc-500 mt-0.5">{survMatches.length} games</p>
-                    <div className="mt-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                      <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${survWinRate}%` }} />
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-red-900/40 to-zinc-900/60 border border-red-500/30 text-center">
-                    <p className="text-2xl font-bold text-red-400">{killWinRate}%</p>
-                    <p className="text-[10px] uppercase tracking-wider text-red-300/60 font-bold mt-1">Killer Win Rate</p>
-                    <p className="text-[9px] text-zinc-500 mt-0.5">{killMatches.length} games</p>
-                    <div className="mt-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                      <div className="h-full rounded-full bg-red-500 transition-all" style={{ width: `${killWinRate}%` }} />
-                    </div>
-                  </div>
-                </div>
-                {/* Row 2: K/D and Best Maps */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-900/30 to-zinc-900/60 border border-orange-500/30 text-center">
-                    <p className="text-2xl font-bold text-orange-400">{avgKills}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-orange-300/60 font-bold mt-1">Avg Kills/Game</p>
-                    <p className="text-[9px] text-zinc-500 mt-0.5">K/D Ratio</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-900/30 to-zinc-900/60 border border-blue-500/20 text-center">
-                    <p className="text-sm font-bold text-blue-300 truncate">{bestSurvMap ? bestSurvMap[0] : '—'}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-blue-300/60 font-bold mt-1">Best Survivor Map</p>
-                    {bestSurvMap && <p className="text-[9px] text-zinc-500 mt-0.5">{Math.round((bestSurvMap[1].wins / bestSurvMap[1].total) * 100)}% Win Rate ({bestSurvMap[1].total} games)</p>}
-                  </div>
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-red-900/30 to-zinc-900/60 border border-red-500/20 text-center">
-                    <p className="text-sm font-bold text-red-300 truncate">{bestKillMap ? bestKillMap[0] : '—'}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-red-300/60 font-bold mt-1">Best Killer Map</p>
-                    {bestKillMap && <p className="text-[9px] text-zinc-500 mt-0.5">{Math.round((bestKillMap[1].wins / bestKillMap[1].total) * 100)}% Win Rate ({bestKillMap[1].total} games)</p>}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-6">
-            <div className="p-4 rounded-3xl bg-zinc-900/50 border border-white/10">
-              <p className="text-xs uppercase font-bold text-zinc-500 mb-2">Character Performance</p>
-              {characterStats.length === 0 && <p className="text-zinc-500 text-sm">No data yet.</p>}
-              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                {characterStats.sort((a, b) => b.rate - a.rate).slice(0, 8).map(stat => (
-                  <div key={stat.key} className="p-2 rounded-xl bg-white/5 border border-white/10">
-                    <div className="flex justify-between text-sm text-white font-semibold mb-1">
-                      <span className="truncate">{characterName(stat.key)}</span>
-                      <span style={{ color: stat.rate >= 50 ? '#4ade80' : '#f87171' }}>{stat.rate}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden mb-1">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${stat.rate}%`, background: stat.rate >= 50 ? '#22c55e' : '#ef4444' }} />
-                    </div>
-                    <p className="text-[10px] text-zinc-500">{stat.total} games · Avg {stat.avgPerf}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="p-4 rounded-3xl bg-zinc-900/50 border border-white/10">
-              <p className="text-xs uppercase font-bold text-zinc-500 mb-2">Build Performance</p>
-              {buildStats.length === 0 && <p className="text-zinc-500 text-sm">No linked matches yet.</p>}
-              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                {buildStats.sort((a, b) => b.rate - a.rate).slice(0, 8).map(stat => (
-                  <div key={stat.key} className="p-2 rounded-xl bg-white/5 border border-white/10">
-                    <div className="flex justify-between text-sm text-white font-semibold mb-1">
-                      <span className="truncate">{buildName(stat.key)}</span>
-                      <span style={{ color: stat.rate >= 50 ? '#4ade80' : '#f87171' }}>{stat.rate}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden mb-1">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${stat.rate}%`, background: stat.rate >= 50 ? '#22c55e' : '#ef4444' }} />
-                    </div>
-                    <p className="text-[10px] text-zinc-500">{stat.total} games · Avg {stat.avgPerf}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="p-4 rounded-3xl bg-zinc-900/50 border border-white/10">
-              <p className="text-xs uppercase font-bold text-zinc-500 mb-2">Map Trends</p>
-              {mapStats.length === 0 && <p className="text-zinc-500 text-sm">No map history yet.</p>}
-              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                {mapStats.sort((a, b) => b.total - a.total).slice(0, 8).map(stat => (
-                  <div key={stat.key} className="p-2 rounded-xl bg-white/5 border border-white/10">
-                    <div className="flex justify-between text-sm text-white font-semibold mb-1">
-                      <span className="truncate">{stat.key}</span>
-                      <span style={{ color: stat.rate >= 50 ? '#4ade80' : '#f87171' }}>{stat.rate}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden mb-1">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${stat.rate}%`, background: stat.rate >= 50 ? '#22c55e' : '#ef4444' }} />
-                    </div>
-                    <p className="text-[10px] text-zinc-500">{stat.total} games</p>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
           <div className="space-y-2 pb-32">
@@ -6393,10 +6935,10 @@
             {filteredMatches.map(match => (
               <div key={match.id} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10 flex flex-col gap-1">
                 <div className="flex flex-wrap justify-between gap-2 items-center">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${match.role === 'Killer' ? 'bg-red-600/30 text-red-200' : 'bg-blue-600/30 text-blue-200'}`}>{match.role}</span>
-                    <span className="text-white font-semibold text-sm">{characterName(match.characterId)}</span>
-                    {match.buildId && <span className="text-[11px] text-zinc-400">- {buildName(match.buildId)}</span>}
+                    <span className="text-white font-semibold text-sm">{getMatchCharacterLabel(match)}</span>
+                    {(match.buildSnapshot?.name || match.buildId) && <span className="text-[11px] text-zinc-400">- {getMatchBuildLabel(match)}</span>}
                   </div>
                   <div className="flex gap-2 text-[11px] text-zinc-400">
                     <button onClick={() => editMatch(match)} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10">Edit</button>
@@ -6405,7 +6947,7 @@
                 </div>
                 <div className="text-xs text-zinc-500 flex flex-wrap gap-2">
                   <span>{formatDate(match.date)}</span>
-                  <span>- Map {match.map || 'Unknown'}</span>
+                  <span>- Map {getMatchMapLabel(match)}</span>
                   <span>- Outcome {match.outcome}</span>
                   <span>- Kills {match.kills}</span>
                   {match.performance && <span>- Self {match.performance}</span>}
@@ -6413,6 +6955,15 @@
                   {match.tilt && <span>- Tilt {match.tilt}</span>}
                   {match.dc && <span className="text-orange-300">- DC</span>}
                 </div>
+                {match.perkSnapshots?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {match.perkSnapshots.map((perk) => (
+                      <span key={`${match.id}-${perk.id || perk.name}`} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300">
+                        {perk.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {match.notes && <p className="text-sm text-zinc-300">{match.notes}</p>}
               </div>
             ))}
@@ -6421,16 +6972,800 @@
         </div>
       );
     };
-    const ProgressionView = ({ onBack, killers = [], survivors = [], perks = [], progression, setProgression, builds = [] }) => {
-      const [tab, setTab] = useState('characters');
+    const ANALYTICS_FILTER_DEFAULTS = { role: 'All', character: 'All', build: 'All', map: 'All', from: '', to: '' };
+    const summarizeMatchesBy = (list, prefs, getKey, getLabel) => {
+      const bucket = {};
+      list.forEach((match) => {
+        const key = getKey(match);
+        const label = getLabel(match);
+        if (!key || !label) return;
+        const entry = bucket[key] || { key, label, total: 0, wins: 0, perf: 0, last: null };
+        entry.total += 1;
+        entry.wins += isMatchWin(match, prefs) ? 1 : 0;
+        entry.perf += Number(match.performance) || 0;
+        entry.last = entry.last && new Date(entry.last) > new Date(match.date) ? entry.last : match.date;
+        bucket[key] = entry;
+      });
+      return Object.values(bucket).map((entry) => {
+        const avgPerfValue = entry.total ? entry.perf / entry.total : 0;
+        return {
+          ...entry,
+          rate: entry.total ? Math.round((entry.wins / entry.total) * 100) : 0,
+          avgPerfValue,
+          avgPerf: entry.total ? avgPerfValue.toFixed(1) : '-'
+        };
+      });
+    };
+    const summarizePerksAcrossMatches = (list, prefs) => {
+      const bucket = {};
+      list.forEach((match) => {
+        normalizePerkSnapshots(match.perkSnapshots).forEach((perk) => {
+          const key = perk.id || perk.name;
+          if (!key) return;
+          const entry = bucket[key] || { key, label: perk.name, total: 0, wins: 0, perf: 0, last: null, owner: perk.owner || '', type: perk.type || '' };
+          entry.total += 1;
+          entry.wins += isMatchWin(match, prefs) ? 1 : 0;
+          entry.perf += Number(match.performance) || 0;
+          entry.last = entry.last && new Date(entry.last) > new Date(match.date) ? entry.last : match.date;
+          bucket[key] = entry;
+        });
+      });
+      return Object.values(bucket).map((entry) => {
+        const avgPerfValue = entry.total ? entry.perf / entry.total : 0;
+        return {
+          ...entry,
+          rate: entry.total ? Math.round((entry.wins / entry.total) * 100) : 0,
+          avgPerfValue,
+          avgPerf: entry.total ? avgPerfValue.toFixed(1) : '-'
+        };
+      });
+    };
+    const MatchAnalyticsPanel = ({ matches = [], prefs = {}, killers = [], survivors = [], builds = [], maps = [], onOpenMatches }) => {
+      const [filters, setFilters] = useState(ANALYTICS_FILTER_DEFAULTS);
+      const characterOptions = useMemo(() => {
+        const seen = new Set();
+        const options = [];
+        [...killers, ...survivors].forEach((character) => {
+          if (!character?.id || seen.has(character.id)) return;
+          seen.add(character.id);
+          options.push({ value: character.id, label: character.name });
+        });
+        matches.forEach((match) => {
+          const snapshotId = match?.characterSnapshot?.id;
+          const snapshotName = getMatchCharacterLabel(match);
+          if (!snapshotId || !snapshotName || seen.has(snapshotId)) return;
+          seen.add(snapshotId);
+          options.push({ value: snapshotId, label: snapshotName });
+        });
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+      }, [killers, survivors, matches]);
+      const buildOptions = useMemo(() => {
+        const seen = new Set();
+        const options = [];
+        builds.forEach((build) => {
+          if (!build?.id || seen.has(build.id)) return;
+          seen.add(build.id);
+          options.push({ value: build.id, label: build.name });
+        });
+        matches.forEach((match) => {
+          const snapshotId = match?.buildSnapshot?.id;
+          const snapshotName = getMatchBuildLabel(match);
+          if (!snapshotId || !snapshotName || seen.has(snapshotId)) return;
+          seen.add(snapshotId);
+          options.push({ value: snapshotId, label: snapshotName });
+        });
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+      }, [builds, matches]);
+      const mapOptions = useMemo(() => {
+        const known = (maps || []).map((map) => ({ value: map.id, label: map.name }));
+        const legacy = [];
+        const seen = new Set(known.map(option => option.label.toLowerCase()));
+        matches.forEach((match) => {
+          const label = getMatchMapLabel(match);
+          if (!label || seen.has(label.toLowerCase())) return;
+          seen.add(label.toLowerCase());
+          legacy.push({ value: `legacy:${label}`, label });
+        });
+        return [...known, ...legacy];
+      }, [maps, matches]);
+      const filteredMatches = useMemo(() => {
+        return matches.filter((match) => {
+          const mapFilterValue = match.mapId || (getMatchMapLabel(match) ? `legacy:${getMatchMapLabel(match)}` : 'All');
+          const buildFilterValue = match.buildSnapshot?.id || match.buildId || 'All';
+          const characterFilterValue = match.characterSnapshot?.id || match.characterId || 'All';
+          const inRole = filters.role === 'All' || match.role === filters.role;
+          const inChar = filters.character === 'All' || characterFilterValue === filters.character;
+          const inBuild = filters.build === 'All' || buildFilterValue === filters.build;
+          const inMap = filters.map === 'All' || mapFilterValue === filters.map;
+          const inFrom = !filters.from || new Date(match.date) >= new Date(filters.from);
+          const inTo = !filters.to || new Date(match.date) <= new Date(filters.to + 'T23:59');
+          return inRole && inChar && inBuild && inMap && inFrom && inTo;
+        });
+      }, [matches, filters]);
+      const killerMatches = filteredMatches.filter(match => match.role === 'Killer');
+      const survivorMatches = filteredMatches.filter(match => match.role === 'Survivor');
+      const totalWins = filteredMatches.filter(match => isMatchWin(match, prefs)).length;
+      const overallWinRate = filteredMatches.length ? Math.round((totalWins / filteredMatches.length) * 100) : 0;
+      const survivorWinRate = survivorMatches.length ? Math.round((survivorMatches.filter(match => isMatchWin(match, prefs)).length / survivorMatches.length) * 100) : 0;
+      const killerWinRate = killerMatches.length ? Math.round((killerMatches.filter(match => isMatchWin(match, prefs)).length / killerMatches.length) * 100) : 0;
+      const perkSnapshotMatches = filteredMatches.filter(match => normalizePerkSnapshots(match.perkSnapshots).length > 0).length;
+      const killerStats = summarizeMatchesBy(killerMatches, prefs, match => match.characterSnapshot?.id || match.characterId || getMatchCharacterLabel(match), getMatchCharacterLabel);
+      const survivorStats = summarizeMatchesBy(survivorMatches, prefs, match => match.characterSnapshot?.id || match.characterId || getMatchCharacterLabel(match), getMatchCharacterLabel);
+      const buildStats = summarizeMatchesBy(filteredMatches.filter(match => match.buildSnapshot?.name || match.buildId), prefs, match => match.buildSnapshot?.id || match.buildId || getMatchBuildLabel(match), getMatchBuildLabel);
+      const mapStats = summarizeMatchesBy(filteredMatches, prefs, match => match.mapId || getMatchMapLabel(match), getMatchMapLabel);
+      const perkStats = summarizePerksAcrossMatches(filteredMatches, prefs);
+      const sortRows = (rows) => rows.slice().sort((a, b) => b.rate - a.rate || b.total - a.total || b.avgPerfValue - a.avgPerfValue).slice(0, 8);
+      const AnalyticsBoard = ({ title, rows, empty, subtitle }) => (
+        <div className="p-4 rounded-3xl bg-zinc-900/50 border border-white/10">
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <p className="text-xs uppercase font-bold text-zinc-500">{title}</p>
+            {subtitle && <span className="text-[10px] text-zinc-600 uppercase tracking-wider">{subtitle}</span>}
+          </div>
+          {rows.length === 0 && <p className="text-zinc-500 text-sm">{empty}</p>}
+          <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
+            {sortRows(rows).map((row) => (
+              <div key={row.key} className="p-2 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex justify-between text-sm text-white font-semibold mb-1 gap-2">
+                  <span className="truncate">{row.label}</span>
+                  <span style={{ color: row.rate >= 50 ? '#4ade80' : '#f87171' }}>{row.rate}%</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden mb-1">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${row.rate}%`, background: row.rate >= 50 ? '#22c55e' : '#ef4444' }} />
+                </div>
+                <p className="text-[10px] text-zinc-500">{row.total} matches · Avg self score {row.avgPerf}</p>
+                {(row.owner || row.type) && <p className="text-[10px] text-zinc-600 mt-1">{[row.type, row.owner].filter(Boolean).join(' · ')}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+      return (
+        <div className="space-y-4">
+          <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10">
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Analytics Filters</p>
+              <button onClick={onOpenMatches} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-zinc-200 hover:bg-white/10 transition-colors">
+                Open Match Log
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <select value={filters.role} onChange={e => setFilters(current => ({ ...current, role: e.target.value }))} className="themed-select w-full text-sm">
+                <option value="All">All roles</option>
+                <option value="Killer">Killer</option>
+                <option value="Survivor">Survivor</option>
+              </select>
+              <select value={filters.character} onChange={e => setFilters(current => ({ ...current, character: e.target.value }))} className="themed-select w-full text-sm">
+                <option value="All">Any character</option>
+                {characterOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <select value={filters.build} onChange={e => setFilters(current => ({ ...current, build: e.target.value }))} className="themed-select w-full text-sm">
+                <option value="All">Any build</option>
+                {buildOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <select value={filters.map} onChange={e => setFilters(current => ({ ...current, map: e.target.value }))} className="themed-select w-full text-sm">
+                <option value="All">Any map</option>
+                {mapOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <input type="date" value={filters.from} onChange={e => setFilters(current => ({ ...current, from: e.target.value }))} className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white" />
+              <input type="date" value={filters.to} onChange={e => setFilters(current => ({ ...current, to: e.target.value }))} className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: 'Filtered Matches', value: filteredMatches.length, color: '#f4f4f5' },
+              { label: 'Overall Win Rate', value: `${overallWinRate}%`, color: overallWinRate >= 50 ? '#22c55e' : '#ef4444' },
+              { label: 'Survivor Win Rate', value: `${survivorWinRate}%`, color: '#38bdf8' },
+              { label: 'Killer Win Rate', value: `${killerWinRate}%`, color: '#ef4444' },
+              { label: 'Perk Snapshot Coverage', value: `${perkSnapshotMatches}/${filteredMatches.length || 0}`, color: '#facc15' }
+            ].map((card) => (
+              <div key={card.label} className="p-4 rounded-2xl bg-gradient-to-br from-zinc-900/80 to-zinc-800/40 border border-white/10 text-center">
+                <p className="text-2xl font-bold" style={{ color: card.color }}>{card.value}</p>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">{card.label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <AnalyticsBoard title="Killer Performance" rows={killerStats} empty="No killer-side matches in the current filter." />
+            <AnalyticsBoard title="Survivor Performance" rows={survivorStats} empty="No survivor-side matches in the current filter." />
+            <AnalyticsBoard title="Build Performance" rows={buildStats} empty="No linked build snapshots in the current filter." />
+            <AnalyticsBoard title="Map Performance" rows={mapStats} empty="No map history in the current filter." subtitle="Snapshot-based" />
+            <div className="lg:col-span-2">
+              <AnalyticsBoard title="Perk Performance" rows={perkStats} empty="No perk snapshot data yet. Link a build when logging matches to populate this." subtitle="Historical loadouts only" />
+            </div>
+          </div>
+        </div>
+      );
+    };
+    const WorldleView = ({ onBack, killers = [], perks = [], worldleState, setWorldleState }) => {
+      const [mode, setMode] = useState('classic');
+      const [queueType, setQueueType] = useState('daily');
+      const [guessInput, setGuessInput] = useState('');
+      const [inputError, setInputError] = useState('');
+      const todayKey = getWorldleDateKey();
+      const killerCatalog = useMemo(() => buildWorldleKillerCatalog(killers).sort((a, b) => a.name.localeCompare(b.name)), [killers]);
+      const survivorPerkCatalog = useMemo(() => buildWorldlePerkCatalog(perks, 'Survivor').sort((a, b) => a.name.localeCompare(b.name)), [perks]);
+      const killerPerkCatalog = useMemo(() => buildWorldlePerkCatalog(perks, 'Killer').sort((a, b) => a.name.localeCompare(b.name)), [perks]);
+      const teachableCatalog = useMemo(() => buildTeachableCatalog(killers, perks).sort((a, b) => a.name.localeCompare(b.name)), [killers, perks]);
+      const practiceEnabled = ['survivorPerk', 'killerPerk', 'teachables'].includes(mode);
+      const activeQueue = practiceEnabled ? queueType : 'daily';
+      const activeCatalog = useMemo(() => {
+        if (mode === 'classic' || mode === 'emoji') return killerCatalog;
+        if (mode === 'survivorPerk') return survivorPerkCatalog;
+        if (mode === 'killerPerk') return killerPerkCatalog;
+        if (mode === 'teachables') return teachableCatalog;
+        return [];
+      }, [mode, killerCatalog, survivorPerkCatalog, killerPerkCatalog, teachableCatalog]);
+      const storedSession = activeQueue === 'daily' ? worldleState?.daily?.[mode] : worldleState?.practice?.[mode];
+      const session = useMemo(() => {
+        if (activeQueue === 'daily' && storedSession && storedSession.dateKey === todayKey && storedSession.targetId) return storedSession;
+        if (activeQueue === 'practice' && storedSession && storedSession.targetId) return storedSession;
+        return activeQueue === 'daily'
+          ? createDailyWorldleSession(mode, activeCatalog, todayKey)
+          : createPracticeWorldleSession(mode, activeCatalog, todayKey, 0);
+      }, [activeQueue, storedSession, todayKey, mode, activeCatalog]);
+      const target = useMemo(() => (
+        activeCatalog.find(entry => entry.id === session?.targetId)
+          || (activeQueue === 'daily'
+            ? pickDeterministicEntry(activeCatalog, `${mode}:${todayKey}`)
+            : activeCatalog.find(entry => entry.id === session?.queue?.[0]))
+          || null
+      ), [activeCatalog, session, activeQueue, mode, todayKey]);
+      const solvedIds = Array.isArray(session?.solvedIds) ? session.solvedIds : [];
+      const wrongGuesses = countWorldleWrongGuesses(session);
+      const guessCount = Array.isArray(session?.guesses) ? session.guesses.filter(guess => guess && guess.duplicate !== true).length : 0;
+      const isFinished = session?.solved || session?.failed;
+      const statsBucket = worldleState?.stats?.[mode]?.[activeQueue] || createWorldleStatsBucket();
+      const historyRows = worldleState?.history?.[mode]?.[activeQueue] || [];
+      const suggestionOptions = useMemo(() => {
+        if (mode === 'classic' || mode === 'emoji') return killerCatalog.map(entry => entry.name);
+        if (mode === 'survivorPerk') return survivorPerkCatalog.map(entry => entry.name);
+        if (mode === 'killerPerk') return killerPerkCatalog.map(entry => entry.name);
+        if (mode === 'teachables') return killerPerkCatalog.filter(entry => !solvedIds.includes(entry.id)).map(entry => entry.name);
+        return [];
+      }, [mode, killerCatalog, survivorPerkCatalog, killerPerkCatalog, solvedIds]);
+      useEffect(() => {
+        setGuessInput('');
+        setInputError('');
+        if (!practiceEnabled) setQueueType('daily');
+      }, [mode, practiceEnabled]);
+
+      const persistSession = (next, nextSession) => {
+        if (activeQueue === 'daily') {
+          next.daily[mode] = nextSession;
+        } else {
+          next.practice[mode] = nextSession;
+        }
+        return next;
+      };
+      const hydrateSession = (prev) => ensureWorldleSession({ state: prev, mode, queue: activeQueue, catalog: activeCatalog, dateKey: todayKey });
+      const setDuplicateError = (label) => {
+        setInputError(`${label} was already tried.`);
+      };
+      const handleGuessSubmit = () => {
+        const rawGuess = guessInput.trim();
+        if (!rawGuess || !target) return;
+        let unknown = false;
+        let duplicate = false;
+        setWorldleState((prev) => {
+          const ensured = hydrateSession(prev);
+          let next = ensured.state;
+          let activeSession = activeQueue === 'daily' ? next.daily[mode] : next.practice[mode];
+          if (!activeSession || activeSession.solved || activeSession.failed) return prev;
+          const now = new Date().toISOString();
+          if (mode === 'teachables') {
+            const guess = resolveWorldleGuess(killerPerkCatalog, rawGuess);
+            if (!guess) {
+              unknown = true;
+              return prev;
+            }
+            const alreadyTried = (activeSession.guesses || []).some(entry => entry.id === guess.id) || (activeSession.solvedIds || []).includes(guess.id);
+            if (alreadyTried) {
+              duplicate = true;
+              return prev;
+            }
+            const correct = target.teachables.some(perk => perk.id === guess.id);
+            const nextGuesses = [...(activeSession.guesses || []), { id: guess.id, label: guess.name, correct }];
+            const nextSolvedIds = correct ? [...(activeSession.solvedIds || []), guess.id] : (activeSession.solvedIds || []);
+            activeSession = {
+              ...activeSession,
+              guesses: nextGuesses,
+              solvedIds: nextSolvedIds,
+              solved: nextSolvedIds.length === target.teachables.length,
+              failed: false,
+              completedAt: nextSolvedIds.length === target.teachables.length ? now : null
+            };
+            next = persistSession(next, activeSession);
+            if (activeSession.solved) {
+              next = recordWorldleResult(next, {
+                mode,
+                queue: activeQueue,
+                result: buildWorldleResultEntry({ mode, queue: activeQueue, target, guessCount: nextGuesses.length, solved: true, dateKey: activeQueue === 'daily' ? activeSession.dateKey : todayKey })
+              });
+            }
+            return next;
+          }
+          const guess = resolveWorldleGuess(activeCatalog, rawGuess);
+          if (!guess) {
+            unknown = true;
+            return prev;
+          }
+          const alreadyTried = (activeSession.guesses || []).some(entry => entry.id === guess.id);
+          if (alreadyTried) {
+            duplicate = true;
+            return prev;
+          }
+          const correct = guess.id === target.id;
+          const nextGuesses = [...(activeSession.guesses || []), { id: guess.id, label: guess.name, correct }];
+          activeSession = {
+            ...activeSession,
+            guesses: nextGuesses,
+            solved: correct,
+            failed: false,
+            revealedClues: mode === 'emoji' ? Math.min(3, 1 + nextGuesses.filter(entry => entry.correct === false).length) : activeSession.revealedClues,
+            completedAt: correct ? now : null
+          };
+          next = persistSession(next, activeSession);
+          if (correct) {
+            next = recordWorldleResult(next, {
+              mode,
+              queue: activeQueue,
+              result: buildWorldleResultEntry({ mode, queue: activeQueue, target, guessCount: nextGuesses.length, solved: true, dateKey: activeQueue === 'daily' ? activeSession.dateKey : todayKey })
+            });
+          }
+          return next;
+        });
+        if (unknown) {
+          setInputError('That guess is not in the current offline pool.');
+          return;
+        }
+        if (duplicate) {
+          setDuplicateError(rawGuess);
+          return;
+        }
+        setGuessInput('');
+        setInputError('');
+      };
+      const handleGiveUp = () => {
+        if (!target || isFinished) return;
+        setWorldleState((prev) => {
+          const ensured = hydrateSession(prev);
+          let next = ensured.state;
+          let activeSession = activeQueue === 'daily' ? next.daily[mode] : next.practice[mode];
+          if (!activeSession || activeSession.solved || activeSession.failed) return prev;
+          activeSession = {
+            ...activeSession,
+            failed: true,
+            solved: false,
+            completedAt: new Date().toISOString()
+          };
+          next = persistSession(next, activeSession);
+          return recordWorldleResult(next, {
+            mode,
+            queue: activeQueue,
+            result: buildWorldleResultEntry({ mode, queue: activeQueue, target, guessCount: guessCount || 0, solved: false, dateKey: activeQueue === 'daily' ? activeSession.dateKey : todayKey })
+          });
+        });
+        setInputError('');
+      };
+      const advancePractice = () => {
+        if (activeQueue !== 'practice') return;
+        setWorldleState(prev => advancePracticeWorldleSession({ mode, state: prev, catalog: activeCatalog, dateKey: todayKey }));
+        setGuessInput('');
+        setInputError('');
+      };
+      const getPerkRevealStyle = () => {
+        const stage = Math.min(3, wrongGuesses);
+        if (stage === 0) return { filter: 'blur(16px) brightness(0.45) saturate(0.7)' };
+        if (stage === 1) return { filter: 'blur(9px) brightness(0.62) saturate(0.8)' };
+        if (stage === 2) return { filter: 'blur(4px) brightness(0.82) saturate(0.95)' };
+        return { filter: 'none' };
+      };
+      const formatClassicValue = (field, value) => {
+        if (field === 'licensed') return value ? 'Licensed' : 'Original';
+        if (field === 'releaseYear') return value || '?';
+        return value || '?';
+      };
+      const classicFields = [
+        { key: 'difficulty', label: 'Difficulty' },
+        { key: 'height', label: 'Height' },
+        { key: 'speed', label: 'Speed' },
+        { key: 'terrorRadius', label: 'TR' },
+        { key: 'licensed', label: 'Origin' },
+        { key: 'gender', label: 'Gender' },
+        { key: 'releaseYear', label: 'Year' }
+      ];
+      const renderClassicGuess = (guess, index) => {
+        const guessedKiller = killerCatalog.find(entry => entry.id === guess.id);
+        if (!guessedKiller || !target) return null;
+        return (
+          <div key={`${guess.id}-${index}`} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <p className="text-sm font-bold text-white">{guessedKiller.name}</p>
+              <span className={`px-2 py-1 rounded-lg text-[10px] uppercase tracking-wider font-bold ${guess.correct ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-200'}`}>
+                {guess.correct ? 'Solved' : 'Wrong'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
+              {classicFields.map((field) => {
+                const guessedValue = guessedKiller[field.key];
+                const targetValue = target[field.key];
+                const exact = guessedValue === targetValue;
+                const yearHint = field.key === 'releaseYear' && guessedValue && targetValue && guessedValue !== targetValue
+                  ? guessedValue < targetValue ? '↑' : '↓'
+                  : '';
+                const palette = exact
+                  ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200'
+                  : field.key === 'releaseYear'
+                    ? 'bg-amber-500/10 border-amber-400/25 text-amber-100'
+                    : 'bg-red-500/10 border-red-400/20 text-red-100';
+                return (
+                  <div key={field.key} className={`p-2 rounded-xl border ${palette}`}>
+                    <p className="text-[10px] uppercase tracking-wider opacity-70 mb-1">{field.label}</p>
+                    <p className="text-xs font-semibold">
+                      {formatClassicValue(field.key, guessedValue)} {yearHint}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      };
+      const histogramMax = Math.max(1, ...Object.values(statsBucket.histogram || {}).map(value => Number(value) || 0));
+      if (!target || activeCatalog.length === 0) {
+        return (
+          <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
+            <Header title="DBD Worldle" subtitle="Offline puzzle modes" onBack={onBack} infoTips={VIEW_TIPS.worldle} />
+            <div className="p-6 rounded-3xl bg-zinc-900/60 border border-white/10 text-center text-zinc-400">
+              Worldle data is unavailable in the current offline bundle.
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
+          <Header title="DBD Worldle" subtitle="Offline daily puzzles and perk practice" onBack={onBack} infoTips={VIEW_TIPS.worldle} />
+          <InfoCallout lines={[
+            'Daily puzzles reset at local midnight on this device.',
+            'Perk and Teachables modes include infinite practice queues with local-only stats.',
+            'Everything here stays offline: no accounts, no sync, no network requests.'
+          ]} />
+          <div className="p-4 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(239,68,68,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.14),transparent_35%),linear-gradient(145deg,rgba(8,8,10,0.95),rgba(21,23,30,0.92))] mb-4">
+            <div className="flex flex-wrap gap-2 mb-4">
+              {WORLDLE_MODES.map((modeId) => (
+                <button
+                  key={modeId}
+                  onClick={() => setMode(modeId)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-[0.22em] border transition-all ${mode === modeId ? 'text-white border-white/40 bg-white/10' : 'text-zinc-400 border-white/10 bg-black/20 hover:text-white'}`}
+                  style={mode === modeId ? { boxShadow: `0 0 24px ${(WORLDLE_MODE_META[modeId] || {}).accent || '#ffffff'}25` } : {}}
+                >
+                  {WORLDLE_MODE_META[modeId].label}
+                </button>
+              ))}
+            </div>
+            {practiceEnabled && (
+              <div className="flex gap-2 mb-4">
+                {['daily', 'practice'].map((entry) => (
+                  <button
+                    key={entry}
+                    onClick={() => setQueueType(entry)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-[0.22em] border ${activeQueue === entry ? 'border-cyan-400/40 text-cyan-200 bg-cyan-500/10' : 'border-white/10 text-zinc-500 bg-black/20'}`}
+                  >
+                    {entry === 'daily' ? 'Daily' : 'Practice'}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-1 xl:grid-cols-[1.35fr,0.85fr] gap-4">
+              <div className="space-y-4">
+                <div className="p-5 rounded-[24px] bg-black/35 border border-white/10">
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500 font-bold">{activeQueue === 'daily' ? 'Daily Puzzle' : 'Practice Queue'}</p>
+                      <h2 className="text-2xl font-black text-white mt-1">{WORLDLE_MODE_META[mode].label}</h2>
+                      <p className="text-sm text-zinc-400 mt-2 max-w-2xl">{WORLDLE_MODE_META[mode].description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Puzzle Key</p>
+                      <p className="text-sm text-white font-semibold">{activeQueue === 'daily' ? todayKey : `Practice-${session.round || 0}`}</p>
+                    </div>
+                  </div>
+                  {(mode === 'classic' || mode === 'emoji') && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+                      <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500 font-bold mb-2">{mode === 'classic' ? 'Fog Dossier' : 'Emoji Clues'}</p>
+                        {mode === 'classic' ? (
+                          <>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              {classicFields.map(field => (
+                                <div key={field.key} className="p-3 rounded-xl bg-black/25 border border-white/5">
+                                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">{field.label}</p>
+                                  <p className="text-zinc-300">{isFinished ? formatClassicValue(field.key, target[field.key]) : 'Unknown'}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-3">
+                            {[0, 1, 2].map((index) => {
+                              const revealed = index < Math.min(3, 1 + wrongGuesses) || isFinished;
+                              return (
+                                <div key={index} className="h-24 rounded-2xl bg-black/25 border border-white/10 flex items-center justify-center text-4xl">
+                                  {revealed ? (target.emojis[index] || '❔') : '❔'}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500 font-bold mb-2">Status</p>
+                          <p className="text-sm text-zinc-300">Guesses used: <span className="text-white font-semibold">{guessCount}</span></p>
+                          <p className="text-sm text-zinc-300 mt-1">Wrong guesses: <span className="text-white font-semibold">{wrongGuesses}</span></p>
+                          <p className="text-sm text-zinc-300 mt-1">Answer locked until reset: <span className="text-white font-semibold">{activeQueue === 'daily' && isFinished ? 'Yes' : 'No'}</span></p>
+                        </div>
+                        {isFinished && (
+                          <div className={`mt-4 p-3 rounded-2xl border ${session.solved ? 'bg-emerald-500/10 border-emerald-400/20' : 'bg-amber-500/10 border-amber-400/20'}`}>
+                            <p className="text-[10px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color: session.solved ? '#86efac' : '#fcd34d' }}>
+                              {session.solved ? 'Solved' : 'Revealed'}
+                            </p>
+                            <p className="text-lg font-bold text-white">{target.name}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(mode === 'survivorPerk' || mode === 'killerPerk') && (
+                    <div className="grid grid-cols-1 md:grid-cols-[220px,1fr] gap-4 items-center">
+                      <div className="p-4 rounded-2xl bg-black/30 border border-white/10 flex items-center justify-center min-h-[220px]">
+                        <div className="w-40 h-40 rounded-3xl overflow-hidden border border-white/10 bg-zinc-900/70 flex items-center justify-center">
+                          <img src={`./${target.image}`} alt="Hidden perk icon" className="w-full h-full object-contain" style={isFinished ? { filter: 'none' } : getPerkRevealStyle()} />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Owner</p>
+                            <p className="text-white font-semibold">{isFinished ? target.owner : 'Unknown'}</p>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Reveal Stage</p>
+                            <p className="text-white font-semibold">{Math.min(4, wrongGuesses + 1)}/4</p>
+                          </div>
+                        </div>
+                        {isFinished && (
+                          <div className={`p-3 rounded-2xl border ${session.solved ? 'bg-emerald-500/10 border-emerald-400/20' : 'bg-amber-500/10 border-amber-400/20'}`}>
+                            <p className="text-[10px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color: session.solved ? '#86efac' : '#fcd34d' }}>
+                              {session.solved ? 'Solved' : 'Revealed'}
+                            </p>
+                            <p className="text-lg font-bold text-white">{target.name}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {mode === 'teachables' && (
+                    <div className="grid grid-cols-1 md:grid-cols-[220px,1fr] gap-4 items-start">
+                      <div className="p-4 rounded-2xl bg-black/30 border border-white/10">
+                        <div className="w-full aspect-square rounded-2xl overflow-hidden border border-white/10 bg-zinc-900/70">
+                          <AssetFrame type="Killer" size="fill" imageUrl={target.image} fallbackIcon={<Icons.Sword width={40} height={40} className="text-zinc-600" />} />
+                        </div>
+                        <p className="text-lg font-bold text-white mt-3">{target.name}</p>
+                        <p className="text-xs text-zinc-500 mt-1">Guess all three teachable perks. Duplicate attempts do not count.</p>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {target.teachables.map((perk) => {
+                            const solved = solvedIds.includes(perk.id) || isFinished;
+                            return (
+                              <div key={perk.id} className={`p-4 rounded-2xl border ${solved ? 'bg-emerald-500/10 border-emerald-400/20' : 'bg-white/5 border-white/10'}`}>
+                                <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/30 border border-white/10 mb-3">
+                                  {solved ? (
+                                    <AssetFrame type="Perk" size="fill" imageUrl={perk.image} fallbackIcon={<Icons.BookOpen width={24} height={24} className="text-zinc-600" />} />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-zinc-600 text-2xl font-black">?</div>
+                                  )}
+                                </div>
+                                <p className="text-sm font-semibold text-white">{solved ? perk.name : 'Unknown teachable'}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {isFinished && (
+                          <div className={`p-3 rounded-2xl border ${session.solved ? 'bg-emerald-500/10 border-emerald-400/20' : 'bg-amber-500/10 border-amber-400/20'}`}>
+                            <p className="text-[10px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color: session.solved ? '#86efac' : '#fcd34d' }}>
+                              {session.solved ? 'Solved' : 'Revealed'}
+                            </p>
+                            <p className="text-sm text-white">Target killer: <span className="font-bold">{target.name}</span></p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 rounded-[24px] bg-zinc-900/60 border border-white/10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icons.Search width={16} height={16} className="text-zinc-500" />
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500 font-bold">Submit Guess</p>
+                  </div>
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1">
+                      <input
+                        list={`worldle-${mode}-${activeQueue}`}
+                        value={guessInput}
+                        onChange={e => { setGuessInput(e.target.value); setInputError(''); }}
+                        onKeyDown={e => { if (e.key === 'Enter') handleGuessSubmit(); }}
+                        disabled={isFinished}
+                        placeholder={mode === 'teachables' ? 'Guess a killer perk...' : mode.includes('Perk') ? 'Guess the perk...' : 'Guess the killer...'}
+                        className="w-full bg-zinc-800/60 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-500"
+                      />
+                      <datalist id={`worldle-${mode}-${activeQueue}`}>
+                        {suggestionOptions.map(option => <option key={option} value={option} />)}
+                      </datalist>
+                      {inputError && <p className="text-xs text-amber-300 mt-2">{inputError}</p>}
+                    </div>
+                    <button onClick={handleGuessSubmit} disabled={!guessInput.trim() || isFinished} className="px-5 py-3 rounded-2xl bg-gradient-to-r from-red-700 to-red-500 text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                      Submit
+                    </button>
+                    <button onClick={handleGiveUp} disabled={isFinished} className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-200 font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                      {activeQueue === 'daily' ? 'Reveal' : 'Skip'}
+                    </button>
+                    {activeQueue === 'practice' && isFinished && (
+                      <button onClick={advancePractice} className="px-5 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-400/20 text-cyan-200 font-bold text-sm">
+                        Next Puzzle
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4 rounded-[24px] bg-zinc-900/60 border border-white/10">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500 font-bold">Guess History</p>
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-600">{guessCount} attempts</span>
+                  </div>
+                  {mode === 'classic' ? (
+                    <div className="space-y-3">
+                      {(session.guesses || []).map(renderClassicGuess)}
+                      {(session.guesses || []).length === 0 && <p className="text-sm text-zinc-500">No guesses yet. Start with any killer name and use the stat matches to narrow the field.</p>}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {(session.guesses || []).map((guess, index) => (
+                        <div key={`${guess.id || guess.label}-${index}`} className={`p-3 rounded-2xl border ${guess.correct ? 'bg-emerald-500/10 border-emerald-400/20' : 'bg-red-500/10 border-red-400/20'}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-semibold text-white">{guess.label}</span>
+                            <span className={`text-[10px] uppercase tracking-[0.22em] font-bold ${guess.correct ? 'text-emerald-300' : 'text-red-200'}`}>
+                              {guess.correct ? 'Correct' : 'Wrong'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {(session.guesses || []).length === 0 && <p className="text-sm text-zinc-500">No guesses yet.</p>}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="p-4 rounded-[24px] bg-zinc-900/60 border border-white/10">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500 font-bold mb-3">Stats</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-2xl font-black text-white">{statsBucket.played}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Played</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-2xl font-black text-emerald-300">{statsBucket.solved}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Solved</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-2xl font-black text-cyan-300">{statsBucket.averageGuesses || 0}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Avg Guesses</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-2xl font-black text-fuchsia-300">{activeQueue === 'daily' ? statsBucket.bestStreak : historyRows.length}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">{activeQueue === 'daily' ? 'Best Streak' : 'Recent Runs'}</p>
+                    </div>
+                  </div>
+                  {activeQueue === 'daily' && (
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                        <p className="text-xl font-black text-white">{statsBucket.currentStreak}</p>
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Current Streak</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                        <p className="text-xl font-black text-white">{statsBucket.solved && statsBucket.played ? Math.round((statsBucket.solved / statsBucket.played) * 100) : 0}%</p>
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Solve Rate</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 rounded-[24px] bg-zinc-900/60 border border-white/10">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500 font-bold">Histogram</p>
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-600">Solved runs only</span>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(statsBucket.histogram || {}).map(([bucket, value]) => (
+                      <div key={bucket} className="grid grid-cols-[40px,1fr,28px] items-center gap-2">
+                        <span className="text-xs text-zinc-500 font-semibold">{bucket}</span>
+                        <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-red-500" style={{ width: `${((Number(value) || 0) / histogramMax) * 100}%` }} />
+                        </div>
+                        <span className="text-xs text-zinc-400 text-right">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-4 rounded-[24px] bg-zinc-900/60 border border-white/10">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500 font-bold">Recent Results</p>
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-600">Last 30</span>
+                  </div>
+                  <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
+                    {historyRows.map((row, index) => (
+                      <div key={`${row.completedAt || row.puzzleKey}-${index}`} className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">{row.targetSnapshot?.name || 'Unknown target'}</p>
+                            <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{row.puzzleKey} · {row.queue}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-lg text-[10px] uppercase tracking-[0.22em] font-bold ${row.solved ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-200'}`}>
+                            {row.solved ? `${row.guessCount} guesses` : 'Revealed'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {historyRows.length === 0 && <p className="text-sm text-zinc-500">No recorded runs for this mode yet.</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+    const ProgressionView = ({ onBack, onGoTo, killers = [], survivors = [], perks = [], progression, setProgression, builds = [], matches = [], prefs = {}, settings = {}, setSettings, initialTab = 'achievements', maps = [] }) => {
+      const [tab, setTab] = useState(PROGRESSION_TABS.includes(initialTab) ? initialTab : 'achievements');
       const [roleFilter, setRoleFilter] = useState('All');
       const [showOwnedOnly, setShowOwnedOnly] = useState(false);
-      const [perkSearch, setPerkSearch] = useState('');
+      const [achievementSearch, setAchievementSearch] = useState('');
+      const [achievementSort, setAchievementSort] = useState('name_asc');
+      const [hideCompletedAchievements, setHideCompletedAchievements] = useState(false);
       const [challengeDraft, setChallengeDraft] = useState({ name: '', description: '', side: 'any', tags: '', buildId: '' });
+      const orderedTabs = useMemo(() => ensureOrderedSubset(settings.progressionTabOrder, PROGRESSION_TABS, DEFAULT_SETTINGS.progressionTabOrder), [settings.progressionTabOrder]);
+      useEffect(() => {
+        setTab(PROGRESSION_TABS.includes(initialTab) ? initialTab : 'achievements');
+      }, [initialTab]);
+      const moveTab = (tabId, direction) => {
+        setSettings(prev => {
+          const currentOrder = ensureOrderedSubset(prev.progressionTabOrder, PROGRESSION_TABS, DEFAULT_SETTINGS.progressionTabOrder);
+          const currentIndex = currentOrder.indexOf(tabId);
+          const nextIndex = currentIndex + direction;
+          if (currentIndex === -1 || nextIndex < 0 || nextIndex >= currentOrder.length) return prev;
+          const nextOrder = [...currentOrder];
+          [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+          return { ...prev, progressionTabOrder: nextOrder };
+        });
+      };
+      const tabMeta = {
+        achievements: 'Achievements',
+        roster: 'Roster',
+        challenges: 'Challenges',
+        analytics: 'Analytics'
+      };
       const toggleCharacter = (id, field) => {
         setProgression(prev => {
           const existing = prev.characters?.[id] || {};
-          return { ...prev, characters: { ...prev.characters, [id]: { ...existing, [field]: field === 'owned' ? !existing.owned : field === 'favorite' ? !existing.favorite : existing[field] } } };
+          return {
+            ...prev,
+            characters: {
+              ...prev.characters,
+              [id]: {
+                ...existing,
+                [field]: field === 'owned' ? !existing.owned : field === 'favorite' ? !existing.favorite : existing[field]
+              }
+            }
+          };
         });
       };
       const updateCharacterPrestige = (id, prestige) => {
@@ -6439,53 +7774,215 @@
           return { ...prev, characters: { ...prev.characters, [id]: { ...existing, prestige } } };
         });
       };
-      const updatePerk = (id, changes) => {
-        setProgression(prev => ({ ...prev, perks: { ...prev.perks, [id]: { ...(prev.perks?.[id] || {}), ...changes } } }));
-      };
-      const toggleCorePerk = (id) => {
-        setProgression(prev => {
-          const has = (prev.corePerkIds || []).includes(id);
-          return { ...prev, corePerkIds: has ? prev.corePerkIds.filter(p => p !== id) : [...(prev.corePerkIds || []), id] };
-        });
+      const toggleAchievement = (id) => {
+        setProgression(prev => ({ ...prev, achievements: { ...(prev.achievements || {}), [id]: !prev.achievements?.[id] } }));
       };
       const addChallenge = () => {
         if (!challengeDraft.name.trim()) return;
-        setProgression(prev => ({ ...prev, challenges: [...(prev.challenges || []), { ...challengeDraft, id: uuid(), tags: parseTags(challengeDraft.tags), status: 'planned' }] }));
+        setProgression(prev => ({
+          ...prev,
+          challenges: [
+            ...(prev.challenges || []),
+            { ...challengeDraft, id: uuid(), tags: parseTags(challengeDraft.tags), status: 'planned' }
+          ]
+        }));
         setChallengeDraft({ name: '', description: '', side: 'any', tags: '', buildId: '' });
       };
       const updateChallengeStatus = (id, status) => {
-        setProgression(prev => ({ ...prev, challenges: prev.challenges.map(ch => ch.id === id ? { ...ch, status } : ch) }));
+        setProgression(prev => ({ ...prev, challenges: prev.challenges.map(challenge => challenge.id === id ? { ...challenge, status } : challenge) }));
       };
       const characters = useMemo(() => {
-        const all = [...killers, ...survivors];
-        return all.filter(c => roleFilter === 'All' || (roleFilter === 'Killer' ? killers : survivors).some(x => x.id === c.id));
+        if (roleFilter === 'Killer') return killers;
+        if (roleFilter === 'Survivor') return survivors;
+        return [...killers, ...survivors];
       }, [killers, survivors, roleFilter]);
-      const ownedCharacters = characters.filter(c => progression.characters?.[c.id]?.owned);
-      const missingCore = ownedCharacters.map(c => {
-        const missing = (progression.corePerkIds || []).filter(pid => !progression.perks?.[pid]?.unlocked);
-        return { character: c, missing };
+      const visibleCharacters = characters.filter(character => !showOwnedOnly || progression.characters?.[character.id]?.owned);
+      const ownedKillers = killers.filter(killer => progression.characters?.[killer.id]?.owned);
+      const ownedSurvivors = survivors.filter(survivor => progression.characters?.[survivor.id]?.owned);
+      const ownedCharacters = [...killers, ...survivors].filter(character => progression.characters?.[character.id]?.owned);
+      const teachablesByOwner = useMemo(() => {
+        const map = {};
+        (perks || []).forEach((perk) => {
+          if (!perk.owner || perk.owner === 'All Killers' || perk.owner === 'All Survivors') return;
+          map[perk.owner] = map[perk.owner] || [];
+          map[perk.owner].push(perk);
+        });
+        return map;
+      }, [perks]);
+      const teachableCoverage = ownedCharacters.map((character) => {
+        const prestige = Number(progression.characters?.[character.id]?.prestige) || 0;
+        const total = (teachablesByOwner[character.name] || []).length;
+        const unlocked = prestige >= 1 ? total : 0;
+        return { character, prestige, total, unlocked };
       });
-      const perkPool = useMemo(() => {
-        const term = perkSearch.toLowerCase();
-        return (perks || []).filter(p => !term || p.name.toLowerCase().includes(term) || (p.owner || '').toLowerCase().includes(term) || (p.description || '').toLowerCase().includes(term)).slice(0, 200);
-      }, [perks, perkSearch]);
-      const buildName = (id) => builds.find(b => b.id === id)?.name || 'Unlinked Build';
+      const unlockedTeachableTotal = teachableCoverage.reduce((sum, row) => sum + row.unlocked, 0);
+      const prestigeUnlockedCharacters = teachableCoverage.filter(row => row.prestige >= 1).length;
+      const buildName = (id) => builds.find(build => build.id === id)?.name || 'Unlinked Build';
+      const achievementState = progression.achievements || {};
+      const filteredAchievements = useMemo(() => {
+        let list = DBD_ACHIEVEMENTS;
+        if (achievementSearch.trim()) {
+          const query = achievementSearch.toLowerCase();
+          list = list.filter(achievement => achievement.name.toLowerCase().includes(query) || achievement.description.toLowerCase().includes(query));
+        }
+        if (hideCompletedAchievements) {
+          list = list.filter(achievement => !achievementState[achievement.id]);
+        }
+        list = [...list].sort((a, b) => {
+          const aComplete = !!achievementState[a.id];
+          const bComplete = !!achievementState[b.id];
+          if (achievementSort === 'completed_first') {
+            if (aComplete !== bComplete) return aComplete ? -1 : 1;
+            return a.name.localeCompare(b.name);
+          }
+          if (achievementSort === 'not_completed_first') {
+            if (aComplete !== bComplete) return aComplete ? 1 : -1;
+            return a.name.localeCompare(b.name);
+          }
+          if (achievementSort === 'name_desc') return b.name.localeCompare(a.name);
+          return a.name.localeCompare(b.name);
+        });
+        return list;
+      }, [achievementSearch, achievementSort, hideCompletedAchievements, achievementState]);
+      const completedCount = Object.values(achievementState).filter(Boolean).length;
+      const challengeCounts = {
+        planned: (progression.challenges || []).filter(challenge => challenge.status === 'planned').length,
+        active: (progression.challenges || []).filter(challenge => challenge.status === 'active').length,
+        completed: (progression.challenges || []).filter(challenge => challenge.status === 'completed').length
+      };
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
-          <Header title="Progression & Collection" subtitle="Track owned characters, perks, and challenges" onBack={onBack} infoTips={VIEW_TIPS.progression} />
+          <Header title="Progression Hub" subtitle="Achievements, roster, challenges and analytics" onBack={onBack} infoTips={VIEW_TIPS.progression} />
           <InfoCallout lines={[
-            'Use the tabs to swap between Characters, Perks, and Challenges tracking.',
-            'Characters: mark Owned, set Prestige, and favorite picks; filter by role or owned-only.',
-            'Perks: mark Unlocked, set tiers, and flag Core perks to see coverage; search by owner or name.',
-            'Challenges: add goals, tag them, link a build if needed, and move them between Planned/Active/Completed.'
+            'Progression hub: achievements, roster ownership, custom challenges, and match analytics are all stored here.',
+            'Use the tab order controls to rearrange the hub.',
+            'Choosing who you own here and then enabling "Owned Only global filter" in Settings will filter supported views across the app.'
           ]} />
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {['characters', 'perks', 'challenges'].map(t => (
-              <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border ${tab === t ? 'bg-red-600 text-white border-red-500/60' : 'bg-white/5 text-zinc-300 border-white/10'}`}>{t}</button>
-            ))}
+          <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10 mb-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {orderedTabs.map((tabId) => (
+                <button
+                  key={tabId}
+                  onClick={() => setTab(tabId)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border ${tab === tabId ? 'bg-red-600 text-white border-red-500/60' : 'bg-white/5 text-zinc-300 border-white/10'}`}
+                >
+                  {tabMeta[tabId]}
+                </button>
+              ))}
+            </div>
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold">Tab Order</p>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Saved locally</span>
+              </div>
+              <div className="space-y-1">
+                {orderedTabs.map((tabId, index) => (
+                  <div key={tabId} className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/10">
+                    <button onClick={() => setTab(tabId)} className="text-sm font-semibold text-white">{tabMeta[tabId]}</button>
+                    <div className="ml-auto flex gap-1">
+                      <button onClick={() => moveTab(tabId, -1)} disabled={index === 0} className="w-7 h-7 rounded-lg bg-white/5 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">↑</button>
+                      <button onClick={() => moveTab(tabId, 1)} disabled={index === orderedTabs.length - 1} className="w-7 h-7 rounded-lg bg-white/5 text-zinc-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">↓</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          {tab === 'characters' && (
-            <div className="space-y-3">
+          {tab === 'achievements' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-white">{completedCount}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Completed</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-white">{DBD_ACHIEVEMENTS.length}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Total</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-green-400">{DBD_ACHIEVEMENTS.length ? Math.round((completedCount / DBD_ACHIEVEMENTS.length) * 100) : 0}%</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Completion</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-yellow-300">{DBD_ACHIEVEMENTS.length - completedCount}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Remaining</p>
+                </div>
+              </div>
+              <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    value={achievementSearch}
+                    onChange={e => setAchievementSearch(e.target.value)}
+                    placeholder="Search achievements by name or description..."
+                    className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+                  />
+                  <select value={achievementSort} onChange={e => setAchievementSort(e.target.value)} className="themed-select w-full text-sm">
+                    <option value="name_asc">A → Z</option>
+                    <option value="name_desc">Z → A</option>
+                    <option value="not_completed_first">Not Completed First</option>
+                    <option value="completed_first">Completed First</option>
+                  </select>
+                  <label className="inline-flex items-center gap-2 text-sm text-zinc-300 whitespace-nowrap px-3 py-2 rounded-xl bg-zinc-800/60 border border-white/10 cursor-pointer">
+                    <input type="checkbox" checked={hideCompletedAchievements} onChange={e => setHideCompletedAchievements(e.target.checked)} className="accent-current" />
+                    Hide completed
+                  </label>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {filteredAchievements.map((achievement) => {
+                  const isComplete = !!achievementState[achievement.id];
+                  return (
+                    <div
+                      key={achievement.id}
+                      onClick={() => toggleAchievement(achievement.id)}
+                      className={`p-3 rounded-2xl border cursor-pointer transition-all ${isComplete ? 'bg-white/5 border-green-500/40 opacity-70' : 'bg-zinc-900/60 border-white/10 hover:border-white/20'}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isComplete ? 'bg-green-500 border-green-500' : 'border-zinc-500'}`}>
+                          {isComplete && <span className="text-white text-xs font-bold">✓</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold text-sm ${isComplete ? 'text-zinc-400 line-through' : 'text-white'}`}>{achievement.name}</p>
+                          <p className={`text-xs leading-relaxed mt-0.5 ${isComplete ? 'text-zinc-500' : 'text-zinc-400'}`}>{achievement.description}</p>
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-500">{achievement.category.replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filteredAchievements.length === 0 && <div className="text-center text-zinc-500 py-8">No achievements found matching the current filters.</div>}
+              </div>
+            </div>
+          )}
+          {tab === 'roster' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-white">{ownedCharacters.length}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Owned Characters</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-red-400">{ownedKillers.length}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Owned Killers</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-blue-400">{ownedSurvivors.length}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Owned Survivors</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-yellow-300">{ownedCharacters.filter(character => progression.characters?.[character.id]?.favorite).length}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Favorites</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                  <p className="text-2xl font-bold text-emerald-300">{unlockedTeachableTotal}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">Teachable Perks Unlocked</p>
+                </div>
+              </div>
+              <InfoCallout lines={[
+                'Perks are no longer tracked manually here. Personal perks now unlock from roster prestige.',
+                'For owned-only filtering and build pools, a character starts contributing their teachable perks at prestige 1.'
+              ]} />
               <div className="flex gap-2 flex-wrap items-center">
                 <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="themed-select compact text-sm">
                   <option value="All">All roles</option>
@@ -6495,116 +7992,108 @@
                 <label className="inline-flex items-center gap-2 text-sm text-zinc-400"><input type="checkbox" checked={showOwnedOnly} onChange={e => setShowOwnedOnly(e.target.checked)} /> Owned only</label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {characters.filter(c => !showOwnedOnly || progression.characters?.[c.id]?.owned).map(c => {
-                  const state = progression.characters?.[c.id] || {};
-                  const isKiller = killers.some(k => k.id === c.id);
+                {visibleCharacters.map((character) => {
+                  const state = progression.characters?.[character.id] || {};
+                  const isKiller = killers.some(killer => killer.id === character.id);
                   return (
-                    <div key={c.id} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
+                    <div key={character.id} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
                       <div className="flex justify-between items-center mb-2">
                         <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isKiller ? 'bg-red-600/30 text-red-200' : 'bg-blue-600/30 text-blue-200'}`}>{isKiller ? 'Killer' : 'Survivor'}</span>
-                        <button onClick={() => toggleCharacter(c.id, 'favorite')} className="text-yellow-300 text-sm">{state.favorite ? '*' : ''}</button>
+                        <button onClick={() => toggleCharacter(character.id, 'favorite')} className="text-yellow-300 text-sm">{state.favorite ? '*' : ''}</button>
                       </div>
-                      <p className="text-white font-bold">{c.name}</p>
+                      <p className="text-white font-bold">{character.name}</p>
                       <div className="flex items-center gap-2 mt-2 text-sm text-zinc-300">
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!state.owned} onChange={() => toggleCharacter(c.id, 'owned')} /> Owned</label>
-                        <input type="number" min="0" max="100" value={state.prestige || 0} onChange={e => updateCharacterPrestige(c.id, Number(e.target.value) || 0)} className="w-20 bg-zinc-800/60 border border-white/10 rounded-lg px-2 py-1 text-xs text-white" />
+                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!state.owned} onChange={() => toggleCharacter(character.id, 'owned')} /> Owned</label>
+                        <input type="number" min="0" max="100" value={state.prestige || 0} onChange={e => updateCharacterPrestige(character.id, Number(e.target.value) || 0)} className="w-20 bg-zinc-800/60 border border-white/10 rounded-lg px-2 py-1 text-xs text-white" />
                         <span className="text-[10px] uppercase tracking-wider text-zinc-500">Prestige</span>
                       </div>
                     </div>
                   );
                 })}
+                {visibleCharacters.length === 0 && <div className="text-center text-zinc-500 py-6 md:col-span-3">No characters match the current roster filters.</div>}
               </div>
               <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10">
-                <p className="text-xs uppercase font-bold text-zinc-500 mb-2">Core Perks Coverage</p>
-                {(progression.corePerkIds || []).length === 0 && <p className="text-zinc-500 text-sm">Mark core perks in the Perks tab to see coverage.</p>}
-                {missingCore.map(row => (
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <p className="text-xs uppercase font-bold text-zinc-500">Prestige Unlock Coverage</p>
+                  <span className="text-[10px] uppercase tracking-wider text-zinc-600">{prestigeUnlockedCharacters}/{ownedCharacters.length || 0} owned chars at P1+</span>
+                </div>
+                {teachableCoverage.length === 0 && <p className="text-zinc-500 text-sm">Mark a character as owned to start tracking roster unlocks.</p>}
+                {teachableCoverage.map(row => (
                   <div key={row.character.id} className="flex justify-between items-center border-t border-white/5 py-2 text-sm text-zinc-300">
                     <span>{row.character.name}</span>
-                    <span className="text-[12px] text-zinc-400">{row.missing.length ? `Missing ${row.missing.length}` : 'All core perks owned'}</span>
+                    <span className="text-[12px] text-zinc-400">
+                      {row.total === 0 ? 'No personal perks in local data' : row.prestige >= 1 ? `${row.unlocked}/${row.total} unlocked` : `P${row.prestige} · unlocks at P1`}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {tab === 'perks' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <input value={perkSearch} onChange={e => setPerkSearch(e.target.value)} placeholder="Search perks..." className="px-3 py-2 rounded-xl bg-zinc-800/60 border border-white/10 text-sm text-white placeholder-zinc-500" />
-                {perkSearch && (
-                  <button onClick={() => setPerkSearch('')} className="p-2 rounded-xl bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors">
-                    <Icons.X width={16} height={16} />
-                  </button>
-                )}
-                <span className="text-[11px] text-zinc-500">Showing first {perkPool.length} perks</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {perkPool.map(perk => {
-                  const state = progression.perks?.[perk.id] || {};
-                  const isCore = (progression.corePerkIds || []).includes(perk.id);
-                  return (
-                    <div key={perk.id} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white font-semibold text-sm">{perk.name}</span>
-                        <button onClick={() => toggleCorePerk(perk.id)} className={`text-[11px] px-2 py-1 rounded-lg border ${isCore ? 'border-yellow-400 text-yellow-300' : 'border-white/10 text-zinc-400'}`}>{isCore ? 'Core' : 'Mark Core'}</button>
-                      </div>
-                      <p className="text-[11px] text-zinc-500">{perk.owner} | {perk.type}</p>
-                      <div className="flex items-center gap-2 mt-2 text-sm text-zinc-300">
-                        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={!!state.unlocked} onChange={e => updatePerk(perk.id, { unlocked: e.target.checked })} /> Unlocked</label>
-                        <select value={state.tier || 0} onChange={e => updatePerk(perk.id, { tier: Number(e.target.value) })} className="themed-select compact text-xs">
-                          <option value={0}>Tier ?</option>
-                          <option value={1}>Tier 1</option>
-                          <option value={2}>Tier 2</option>
-                          <option value={3}>Tier 3</option>
-                        </select>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
           {tab === 'challenges' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  ['planned', challengeCounts.planned, '#a1a1aa'],
+                  ['active', challengeCounts.active, '#facc15'],
+                  ['completed', challengeCounts.completed, '#22c55e']
+                ].map(([label, value, color]) => (
+                  <div key={label} className="p-4 rounded-2xl bg-zinc-900/60 border border-white/10 text-center">
+                    <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mt-1">{label}</p>
+                  </div>
+                ))}
+              </div>
               <div className="p-4 rounded-3xl bg-zinc-900/60 border border-white/10 space-y-2">
                 <p className="text-xs uppercase font-bold text-zinc-500">New Challenge</p>
-                <input value={challengeDraft.name} onChange={e => setChallengeDraft(d => ({ ...d, name: e.target.value }))} placeholder="Name" className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500" />
-                <textarea value={challengeDraft.description} onChange={e => setChallengeDraft(d => ({ ...d, description: e.target.value }))} rows={2} placeholder="Description" className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"></textarea>
+                <input value={challengeDraft.name} onChange={e => setChallengeDraft(draft => ({ ...draft, name: e.target.value }))} placeholder="Name" className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500" />
+                <textarea value={challengeDraft.description} onChange={e => setChallengeDraft(draft => ({ ...draft, description: e.target.value }))} rows={2} placeholder="Description" className="w-full bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"></textarea>
                 <div className="grid grid-cols-2 gap-2">
-                  <select value={challengeDraft.side} onChange={e => setChallengeDraft(d => ({ ...d, side: e.target.value }))} className="themed-select w-full text-sm">
+                  <select value={challengeDraft.side} onChange={e => setChallengeDraft(draft => ({ ...draft, side: e.target.value }))} className="themed-select w-full text-sm">
                     <option value="any">Any</option>
                     <option value="Killer">Killer</option>
                     <option value="Survivor">Survivor</option>
                   </select>
-                  <input value={challengeDraft.tags} onChange={e => setChallengeDraft(d => ({ ...d, tags: e.target.value }))} placeholder="Tags (comma)" className="bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500" />
-                  <select value={challengeDraft.buildId} onChange={e => setChallengeDraft(d => ({ ...d, buildId: e.target.value }))} className="themed-select w-full text-sm col-span-2">
+                  <input value={challengeDraft.tags} onChange={e => setChallengeDraft(draft => ({ ...draft, tags: e.target.value }))} placeholder="Tags (comma)" className="bg-zinc-800/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500" />
+                  <select value={challengeDraft.buildId} onChange={e => setChallengeDraft(draft => ({ ...draft, buildId: e.target.value }))} className="themed-select w-full text-sm col-span-2">
                     <option value="">Link build (optional)</option>
-                    {builds.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {builds.map(build => <option key={build.id} value={build.id}>{build.name}</option>)}
                   </select>
                 </div>
                 <button onClick={addChallenge} className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-700 to-red-500 text-white font-bold text-sm">Add Challenge</button>
               </div>
               <div className="space-y-2">
-                {(progression.challenges || []).map(ch => (
-                  <div key={ch.id} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
+                {(progression.challenges || []).map((challenge) => (
+                  <div key={challenge.id} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-white font-semibold">{ch.name}</p>
-                        <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{ch.side}</p>
+                        <p className="text-white font-semibold">{challenge.name}</p>
+                        <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{challenge.side}</p>
                       </div>
-                      <select value={ch.status} onChange={e => updateChallengeStatus(ch.id, e.target.value)} className="themed-select compact text-xs">
+                      <select value={challenge.status} onChange={e => updateChallengeStatus(challenge.id, e.target.value)} className="themed-select compact text-xs">
                         <option value="planned">Planned</option>
                         <option value="active">Active</option>
                         <option value="completed">Completed</option>
                       </select>
                     </div>
-                    {ch.buildId && <p className="text-[11px] text-zinc-400 mt-1">Build: {buildName(ch.buildId)}</p>}
-                    <p className="text-sm text-zinc-300 mt-1">{ch.description}</p>
-                    {ch.tags?.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{ch.tags.map(t => <span key={t} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300 uppercase tracking-wider">{t}</span>)}</div>}
+                    {challenge.buildId && <p className="text-[11px] text-zinc-400 mt-1">Build: {buildName(challenge.buildId)}</p>}
+                    <p className="text-sm text-zinc-300 mt-1">{challenge.description}</p>
+                    {challenge.tags?.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{challenge.tags.map(tag => <span key={tag} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300 uppercase tracking-wider">{tag}</span>)}</div>}
                   </div>
                 ))}
                 {(progression.challenges || []).length === 0 && <div className="text-center text-zinc-500 py-4">No challenges yet.</div>}
               </div>
             </div>
+          )}
+          {tab === 'analytics' && (
+            <MatchAnalyticsPanel
+              matches={matches}
+              prefs={prefs}
+              killers={killers}
+              survivors={survivors}
+              builds={builds}
+              maps={maps}
+              onOpenMatches={() => onGoTo && onGoTo('matches')}
+            />
           )}
         </div>
       );
@@ -6906,118 +8395,7 @@
       { id: 'ach_299', name: 'Adept Eleven', description: 'Escape with Eleven using only her 3 unique perks in a public match.', category: 'adept_survivor' },
       { id: 'ach_300', name: 'Adept Tae-Young', description: 'Escape with Kwon Tae-Young using only his 3 unique perks in a public match.', category: 'adept_survivor' },
     ];
-    const STORAGE_KEY_ACHIEVEMENTS = 'dbd_achievements_progress';
-    const ProgressionTrackerView = ({ onGoTo }) => {
-      const [search, setSearch] = useState('');
-      const [sortBy, setSortBy] = useState('name_asc');
-      const [hideCompleted, setHideCompleted] = useState(false);
-      const [completed, setCompleted] = useState(() => {
-        try {
-          const stored = localStorage.getItem(STORAGE_KEY_ACHIEVEMENTS);
-          return stored ? JSON.parse(stored) : {};
-        } catch { return {}; }
-      });
-      useEffect(() => {
-        try {
-          localStorage.setItem(STORAGE_KEY_ACHIEVEMENTS, JSON.stringify(completed));
-        } catch { }
-      }, [completed]);
-      const toggleComplete = (id) => {
-        setCompleted(prev => ({ ...prev, [id]: !prev[id] }));
-      };
-      const filtered = useMemo(() => {
-        let list = DBD_ACHIEVEMENTS;
-        if (search.trim()) {
-          const q = search.toLowerCase();
-          list = list.filter(a => a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q));
-        }
-        if (hideCompleted) {
-          list = list.filter(a => !completed[a.id]);
-        }
-        list = [...list].sort((a, b) => {
-          const aComplete = !!completed[a.id];
-          const bComplete = !!completed[b.id];
-          if (sortBy === 'completed_first') {
-            if (aComplete !== bComplete) return aComplete ? -1 : 1;
-            return a.name.localeCompare(b.name);
-          }
-          if (sortBy === 'not_completed_first') {
-            if (aComplete !== bComplete) return aComplete ? 1 : -1;
-            return a.name.localeCompare(b.name);
-          }
-          if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
-          return a.name.localeCompare(b.name);
-        });
-        return list;
-      }, [search, sortBy, hideCompleted, completed]);
-      const completedCount = Object.values(completed).filter(Boolean).length;
-      const totalCount = DBD_ACHIEVEMENTS.length;
-      return (
-        <div className="flex flex-col h-full pt-10 pb-28 px-6 overflow-y-auto custom-scrollbar">
-          <Header title="Progression Tracker" subtitle={`Track your DBD achievements (${completedCount}/${totalCount})`} onBack={() => onGoTo && onGoTo('home')} infoTips={VIEW_TIPS.achievements} />
-          { }
-          <div className="sticky top-0 z-20 -mx-6 px-6 pb-4 pt-1 pointer-events-none">
-            <div className="relative mb-3 max-w-3xl mx-auto pointer-events-auto">
-              <div className="absolute inset-0 bg-red-600 rounded-3xl blur-2xl opacity-0 transition-opacity duration-500"></div>
-              <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-xl border border-white/10 rounded-3xl p-2 shadow-2xl">
-                <div className="pl-4 text-zinc-400"><Icons.Search width={18} height={18} /></div>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search achievements by name or description..."
-                  className="w-full bg-transparent text-white p-3 text-sm sm:text-base font-medium placeholder-zinc-600 focus:outline-none"
-                />
-                {search && (
-                  <button onClick={() => setSearch('')} className="p-2 mr-1 rounded-xl bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors">
-                    <Icons.X width={18} height={18} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-center gap-3 flex-wrap mb-4">
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="themed-select compact text-sm">
-              <option value="name_asc">A → Z</option>
-              <option value="name_desc">Z → A</option>
-              <option value="not_completed_first">Not Completed First</option>
-              <option value="completed_first">Completed First</option>
-            </select>
-            <label className="inline-flex items-center gap-2 text-sm text-zinc-300 whitespace-nowrap px-3 py-2 rounded-xl bg-zinc-800/60 border border-white/10 cursor-pointer">
-              <input type="checkbox" checked={hideCompleted} onChange={e => setHideCompleted(e.target.checked)} className="accent-current" />
-              Hide completed
-            </label>
-          </div>
-          { }
-          <div className="space-y-2 pb-8">
-            {filtered.map(ach => {
-              const isComplete = !!completed[ach.id];
-              return (
-                <div
-                  key={ach.id}
-                  onClick={() => toggleComplete(ach.id)}
-                  className={`p-3 rounded-2xl border cursor-pointer transition-all ${isComplete ? 'bg-white/5 border-green-500/40 opacity-70' : 'bg-zinc-900/60 border-white/10 hover:border-white/20'}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isComplete ? 'bg-green-500 border-green-500' : 'border-zinc-500'}`}>
-                      {isComplete && <span className="text-white text-xs font-bold">✓</span>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-sm ${isComplete ? 'text-zinc-400 line-through' : 'text-white'}`}>{ach.name}</p>
-                      <p className={`text-xs leading-relaxed mt-0.5 ${isComplete ? 'text-zinc-500' : 'text-zinc-400'}`}>{ach.description}</p>
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-500">{ach.category.replace('_', ' ')}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center text-zinc-500 py-8">No achievements found matching your search.</div>
-            )}
-          </div>
-        </div>
-      );
-    };
+    const ProgressionTrackerView = () => null;
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // TIMELINE VIEW - Vertical scrolling lore timeline with proper portrait loading
@@ -8251,6 +9629,10 @@
                 <input type="checkbox" checked={settings.hapticEnabled !== false} onChange={e => updateSetting('hapticEnabled', e.target.checked)} />
                 Haptic feedback (vibration)
               </label>
+              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
+                <input type="checkbox" checked={settings.ownedOnlyGlobal === true} onChange={e => updateSetting('ownedOnlyGlobal', e.target.checked)} />
+                Owned Only global filter
+              </label>
             </div>
             <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 space-y-3">
               <h3 className="text-lg font-bold text-white">Perk Descriptions</h3>
@@ -9174,15 +10556,18 @@
         </div>
       );
     };
-    const MapLayoutModal = ({ map, onClose }) => {
+    const MapLayoutModal = ({ map, onClose, noteValue = '', onNoteChange }) => {
       const [currentIndex, setCurrentIndex] = useState(0);
       const [layoutBroken, setLayoutBroken] = useState(false);
       useEffect(() => {
         setLayoutBroken(false);
-      }, [map?.name, currentIndex]);
+        setCurrentIndex(0);
+      }, [map?.name]);
+      useEffect(() => {
+        setLayoutBroken(false);
+      }, [currentIndex]);
       if (!map) return null;
-      const layouts = MAP_LAYOUTS[map.name];
-      if (!layouts || layouts.length === 0) return null;
+      const layouts = MAP_LAYOUTS[map.name] || [];
       const hasMultiple = layouts.length > 1;
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={onClose}>
@@ -9193,8 +10578,9 @@
             {/* Header */}
             <div className="flex-shrink-0 flex items-center justify-between p-4 bg-zinc-900/95 backdrop-blur border-b border-white/10 rounded-t-3xl">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Map Layout</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Map Details</p>
                 <h2 className="text-lg font-bold text-white pb-1" style={{ borderBottom: '2px solid #ef4444', display: 'inline-block' }}>{map.name}</h2>
+                {map.realm && <p className="text-xs text-zinc-500 mt-1">{map.realm}</p>}
                 {hasMultiple && layouts[currentIndex].label && (
                   <p className="text-xs text-zinc-400 mt-1">{layouts[currentIndex].label}</p>
                 )}
@@ -9208,18 +10594,31 @@
             </div>
             {/* Layout Image - scrollable area */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center">
-              <div className="relative w-full aspect-square max-h-[55vh] bg-zinc-800 rounded-2xl overflow-hidden flex items-center justify-center">
-                {!layoutBroken ? (
-                  <img
-                    src={`./dbd_images/${layouts[currentIndex].path}`}
-                    alt={`${map.name} layout`}
-                    className="max-w-full max-h-full object-contain"
-                    onError={() => setLayoutBroken(true)}
-                  />
+              <div className="w-full space-y-4">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2">Overview</p>
+                  <p className="text-sm text-zinc-300 leading-relaxed">{map.description || 'No offline description stored for this map yet.'}</p>
+                </div>
+                {layouts.length > 0 ? (
+                  <div className="relative w-full aspect-square max-h-[55vh] bg-zinc-800 rounded-2xl overflow-hidden flex items-center justify-center">
+                    {!layoutBroken ? (
+                      <img
+                        src={`./dbd_images/${layouts[currentIndex].path}`}
+                        alt={`${map.name} layout`}
+                        className="max-w-full max-h-full object-contain"
+                        onError={() => setLayoutBroken(true)}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 text-zinc-500 px-6 text-center">
+                        <Icons.Map width={36} height={36} className="text-zinc-600" />
+                        <p className="text-sm font-medium">Map layout unavailable in the offline bundle.</p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center gap-3 text-zinc-500 px-6 text-center">
-                    <Icons.Map width={36} height={36} className="text-zinc-600" />
-                    <p className="text-sm font-medium">Map layout unavailable in the offline bundle.</p>
+                  <div className="w-full aspect-square max-h-[40vh] rounded-2xl bg-zinc-800/70 border border-white/10 flex flex-col items-center justify-center text-center px-6">
+                    <Icons.Map width={36} height={36} className="text-zinc-600 mb-3" />
+                    <p className="text-sm font-medium text-zinc-400">No layout art bundled for this map.</p>
                   </div>
                 )}
               </div>
@@ -9236,6 +10635,14 @@
                   ))}
                 </div>
               )}
+              <div className="w-full">
+                <NotesEditor
+                  title="Map Notes"
+                  value={noteValue}
+                  onChange={onNoteChange}
+                  placeholder="Tiles to watch, favorite loops, spawn notes, or personal callouts..."
+                />
+              </div>
             </div>
             {/* Close Button - fixed at bottom */}
             <div className="flex-shrink-0 p-4 pt-3 pb-5 border-t border-white/10">
@@ -9393,7 +10800,7 @@
         </button>
       );
     };
-    const CharacterProfileModal = ({ character, onClose, allPerks = [], onPerkTap, theme, settings = {} }) => {
+    const CharacterProfileModal = ({ character, onClose, allPerks = [], onPerkTap, theme, settings = {}, noteValue = '', onNoteChange }) => {
       if (!character) return null;
       const isKiller = character.type === 'Killer' || character.power;
       const accentColor = isKiller ? '#ef4444' : '#38bdf8';
@@ -9652,6 +11059,16 @@
                   </div>
                 )}
               </div>
+              {isKiller && (
+                <div className="px-6 pb-3">
+                  <NotesEditor
+                    title="Killer Notes"
+                    value={noteValue}
+                    onChange={onNoteChange}
+                    placeholder="Matchups, addon ideas, macro notes, or personal reminders for this killer..."
+                  />
+                </div>
+              )}
 
               {/* Close Button */}
               <div className="sticky bottom-0 px-6 pb-6 pt-3 bg-gradient-to-t from-black via-black/95 to-transparent">
@@ -9733,17 +11150,36 @@
         triggerHaptic('Light');
       };
       const toggleFavoritePerk = (perkId) => toggleFavorite('Perk', perkId);
-      const [settings, setSettings] = useState(() => ({ ...DEFAULT_SETTINGS, ...loadFromStorage(STORAGE_KEYS.settings, DEFAULT_SETTINGS) }));
-      const [builds, setBuilds] = useState(() => loadFromStorage(STORAGE_KEYS.builds, []));
-      const [matches, setMatches] = useState(() => loadFromStorage(STORAGE_KEYS.matches, []));
-      const [progression, setProgression] = useState(() => loadFromStorage(STORAGE_KEYS.progression, DEFAULT_PROGRESSION));
+      const initialSettings = useMemo(() => normalizeSettings(loadFromStorage(STORAGE_KEYS.settings, DEFAULT_SETTINGS)), []);
+      const initialBuilds = useMemo(() => loadFromStorage(STORAGE_KEYS.builds, []), []);
+      const legacyAchievementState = useMemo(() => loadFromStorage(STORAGE_KEY_ACHIEVEMENTS, {}), []);
+      const initialProgression = useMemo(() => normalizeProgression(loadFromStorage(STORAGE_KEYS.progression, DEFAULT_PROGRESSION), legacyAchievementState), [legacyAchievementState]);
+      const initialLookups = useMemo(() => buildDataLookups({ killers, survivors, perks, maps, builds: initialBuilds }), [killers, survivors, perks, maps, initialBuilds]);
+      const initialMatches = useMemo(() => normalizeMatchRecords(loadFromStorage(STORAGE_KEYS.matches, []), initialLookups), [initialLookups]);
+      const initialNotes = useMemo(() => normalizeNotesStore(loadFromStorage(STORAGE_KEYS.notes, {})), []);
+      const initialWorldle = useMemo(() => normalizeWorldleState(loadFromStorage(STORAGE_KEYS.worldle, createWorldleStateShape())), []);
+      const [settings, setSettings] = useState(initialSettings);
+      const [builds, setBuilds] = useState(initialBuilds);
+      const [matches, setMatches] = useState(initialMatches);
+      const [progression, setProgression] = useState(initialProgression);
+      const [notes, setNotes] = useState(initialNotes);
+      const [worldleState, setWorldleState] = useState(initialWorldle);
       const [matchPrefs, setMatchPrefs] = useState(() => loadFromStorage(STORAGE_KEYS.lastContext, DEFAULT_MATCH_PREFS));
       const device = useDeviceProfile();
       useEffect(() => saveToStorage(STORAGE_KEYS.settings, settings), [settings]);
       useEffect(() => saveToStorage(STORAGE_KEYS.builds, builds), [builds]);
       useEffect(() => saveToStorage(STORAGE_KEYS.matches, matches), [matches]);
       useEffect(() => saveToStorage(STORAGE_KEYS.progression, progression), [progression]);
+      useEffect(() => saveToStorage(STORAGE_KEYS.notes, notes), [notes]);
+      useEffect(() => saveToStorage(STORAGE_KEYS.worldle, worldleState), [worldleState]);
       useEffect(() => saveToStorage(STORAGE_KEYS.lastContext, matchPrefs), [matchPrefs]);
+      useEffect(() => {
+        try {
+          localStorage.removeItem(STORAGE_KEY_ACHIEVEMENTS);
+        } catch (err) {
+          console.warn('Failed to remove legacy achievements key', err);
+        }
+      }, []);
       useEffect(() => {
         let listenerHandle;
         const setup = async () => {
@@ -9810,6 +11246,12 @@
         document.body.classList.toggle('high-contrast', boost);
         document.body.classList.toggle('nord-mode', hasFullPalette && themeKey === 'nord');
       }, [theme, themeKey, settings.fontSize, settings.colorMode, settings.highContrast]);
+      const liveLookups = useMemo(() => buildDataLookups({ killers, survivors, perks, maps, builds }), [killers, survivors, perks, maps, builds]);
+      const ownedState = useMemo(() => resolveOwnedState({ progression, killers, survivors, perks }), [progression, killers, survivors, perks]);
+      const visibleKillers = useMemo(() => settings.ownedOnlyGlobal ? killers.filter(killer => ownedState.isCharacterOwned(killer.id)) : killers, [settings.ownedOnlyGlobal, killers, ownedState]);
+      const visibleSurvivors = useMemo(() => settings.ownedOnlyGlobal ? survivors.filter(survivor => ownedState.isCharacterOwned(survivor.id)) : survivors, [settings.ownedOnlyGlobal, survivors, ownedState]);
+      const visiblePerks = useMemo(() => settings.ownedOnlyGlobal ? perks.filter(perk => ownedState.isPerkOwned(perk.id)) : perks, [settings.ownedOnlyGlobal, perks, ownedState]);
+      const visibleAddons = useMemo(() => settings.ownedOnlyGlobal ? addons.filter(addon => addon.role !== 'killer' || ownedState.isAddonOwned(addon)) : addons, [settings.ownedOnlyGlobal, addons, ownedState]);
       const buildsByOwner = useMemo(() => {
         const bucket = {};
         (builds || []).forEach(b => {
@@ -9819,10 +11261,27 @@
         });
         return bucket;
       }, [builds]);
+      const getEntityNote = (type, id) => {
+        if (!id) return '';
+        return notes[getNoteKey(type, id)] || '';
+      };
+      const setEntityNote = (type, id, value) => {
+        if (!id) return;
+        setNotes(prev => {
+          const key = getNoteKey(type, id);
+          const next = { ...prev };
+          if ((value || '').trim()) {
+            next[key] = value;
+          } else {
+            delete next[key];
+          }
+          return next;
+        });
+      };
       const markBuildUsed = (id) => setBuilds(prev => prev.map(b => b.id === id ? { ...b, lastUsedAt: new Date().toISOString() } : b));
       const quickAddMatch = (entry) => {
         const now = new Date().toISOString();
-        const record = { ...entry, createdAt: entry.createdAt || now, updatedAt: now };
+        const record = createMatchSnapshot({ ...entry, createdAt: entry.createdAt || now, updatedAt: now }, liveLookups);
         setMatches(prev => [record, ...prev]);
         if (record.buildId) markBuildUsed(record.buildId);
       };
@@ -9859,19 +11318,39 @@
       };
       const renderContent = () => {
         switch (currentView) {
-          case 'home': return <HomeView setView={setView} data={{ killers, survivors, perks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={perks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={addons} offerings={offerings} />;
-          case 'progression': return <ProgressionTrackerView onGoTo={setView} />;
+          case 'home': return <HomeView setView={setView} data={{ killers: visibleKillers, survivors: visibleSurvivors, perks: visiblePerks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={visiblePerks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={visibleAddons} offerings={offerings} />;
+          case 'progression':
+            return (
+              <ProgressionView
+                onBack={() => setView('home')}
+                onGoTo={setView}
+                killers={killers}
+                survivors={survivors}
+                perks={perks}
+                progression={progression}
+                setProgression={setProgression}
+                builds={builds}
+                matches={matches}
+                prefs={matchPrefs}
+                settings={settings}
+                setSettings={setSettings}
+                initialTab={viewContext.tab || 'achievements'}
+                maps={maps}
+              />
+            );
+          case 'worldle':
+            return <WorldleView onBack={() => setView('home')} killers={killers} perks={perks} worldleState={worldleState} setWorldleState={setWorldleState} />;
           case 'buildLab':
           case 'builds':
             return (
               <BuildPlannerView
                 builds={builds}
                 setBuilds={setBuilds}
-                perks={perks}
-                killers={killers}
-                survivors={survivors}
+                perks={visiblePerks}
+                killers={visibleKillers}
+                survivors={visibleSurvivors}
                 items={items}
-                addons={addons}
+                addons={visibleAddons}
                 offerings={offerings}
                 templates={settings.showTemplates ? PREMADE_BUILDS : []}
                 onBack={() => setView('home')}
@@ -9881,22 +11360,22 @@
               />
             );
           case 'matches':
-            return <MatchLogView onBack={() => setView('home')} matches={matches} setMatches={setMatches} killers={killers} survivors={survivors} builds={builds} prefs={matchPrefs} setPrefs={setMatchPrefs} onBuildUsed={markBuildUsed} />;
-          case 'killers': return <ListView data={killers} type="Killers" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} onShowPower={setPowerKiller} favoritePerks={settings.favoriteKillers || []} onToggleFavorite={(id) => toggleFavorite('Killer', id)} onViewProfile={setProfileCharacter} settings={settings} />;
-          case 'survivors': return <ListView data={survivors} type="Survivors" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} favoritePerks={settings.favoriteSurvivors || []} onToggleFavorite={(id) => toggleFavorite('Survivor', id)} onViewProfile={setProfileCharacter} settings={settings} />;
-          case 'perks': return <ListView data={perks} type="Perks" filterOptions={['All', 'Survivor', 'Killer', 'Favorites', 'Exhaustion', 'Hex', 'Boon', 'Scourge', 'Obsession', 'Aura', 'Stealth', 'Gen', 'Healing']} activeFilter={perkFilter} setActiveFilter={setPerkFilter} initialSearch={perkSearch} onSearchChange={setPerkSearch} onBack={() => setView('home')} comparePerks={comparePerks} onPerkLongPress={togglePerkCompare} favoritePerks={settings.favoritePerks || []} onToggleFavorite={toggleFavoritePerk} onPerkTap={setSelectedPerk} settings={settings} />;
-          case 'roulette': return <ChaosShuffleView onBack={() => setView('home')} perks={perks} killers={killers} survivors={survivors} items={items} addons={addons} offerings={offerings} settings={settings} />;
-          case 'realms': return <RealmsView onBack={() => setView('home')} maps={maps} realms={realms} onViewLayout={setLayoutMap} />;
+            return <MatchLogView onBack={() => setView('home')} matches={matches} setMatches={setMatches} killers={killers} survivors={survivors} builds={builds} maps={maps} prefs={matchPrefs} setPrefs={setMatchPrefs} onBuildUsed={markBuildUsed} onOpenAnalytics={() => setView('progression', { tab: 'analytics' })} />;
+          case 'killers': return <ListView data={visibleKillers} type="Killers" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} onShowPower={setPowerKiller} favoritePerks={settings.favoriteKillers || []} onToggleFavorite={(id) => toggleFavorite('Killer', id)} onViewProfile={setProfileCharacter} settings={settings} />;
+          case 'survivors': return <ListView data={visibleSurvivors} type="Survivors" activeFilter="All" setActiveFilter={() => { }} allPerks={perks} setView={setView} onPerkSelect={setPerkSearch} initialSearch={viewContext.search || ''} buildsByOwner={buildsByOwner} onCreateBuildSeed={setBuildSeed} onBack={() => setView('home')} onShowLore={setLoreCharacter} favoritePerks={settings.favoriteSurvivors || []} onToggleFavorite={(id) => toggleFavorite('Survivor', id)} onViewProfile={setProfileCharacter} settings={settings} />;
+          case 'perks': return <ListView data={visiblePerks} type="Perks" filterOptions={['All', 'Survivor', 'Killer', 'Favorites', 'Exhaustion', 'Hex', 'Boon', 'Scourge', 'Obsession', 'Aura', 'Stealth', 'Gen', 'Healing']} activeFilter={perkFilter} setActiveFilter={setPerkFilter} initialSearch={perkSearch} onSearchChange={setPerkSearch} onBack={() => setView('home')} comparePerks={comparePerks} onPerkLongPress={togglePerkCompare} favoritePerks={settings.favoritePerks || []} onToggleFavorite={toggleFavoritePerk} onPerkTap={setSelectedPerk} settings={settings} />;
+          case 'roulette': return <ChaosShuffleView onBack={() => setView('home')} perks={visiblePerks} killers={visibleKillers} survivors={visibleSurvivors} items={items} addons={visibleAddons} offerings={offerings} settings={settings} ownedOnlyGlobal={settings.ownedOnlyGlobal === true} />;
+          case 'realms': return <RealmsView onBack={() => setView('home')} maps={maps} realms={realms} onViewLayout={setLayoutMap} initialSearch={viewContext.search || ''} />;
           case 'glossary': return <GlossaryView onBack={() => setView('home')} />;
           case 'prestige': return <PrestigeCalculatorView onBack={() => setView('home')} />;
           case 'gameIcons': return <GameIconsView onBack={() => setView('home')} theme={theme} />;
-          case 'items': return <ItemsView onBack={() => setView('home')} items={items} addons={addons} killers={killers} settings={settings} initialSearch={viewContext.search || ''} initialMode={viewContext.mode || 'survivor'} favoriteItems={settings.favoriteItems || []} favoriteAddons={settings.favoriteAddons || []} onToggleFavoriteItem={(id) => toggleFavorite('Item', id)} onToggleFavoriteAddon={(id) => toggleFavorite('Addon', id)} />;
+          case 'items': return <ItemsView onBack={() => setView('home')} items={items} addons={visibleAddons} killers={visibleKillers} settings={settings} initialSearch={viewContext.search || ''} initialMode={viewContext.mode || 'survivor'} favoriteItems={settings.favoriteItems || []} favoriteAddons={settings.favoriteAddons || []} onToggleFavoriteItem={(id) => toggleFavorite('Item', id)} onToggleFavoriteAddon={(id) => toggleFavorite('Addon', id)} />;
           case 'offerings': return <OfferingsView onBack={() => setView('home')} offerings={offerings} initialSearch={viewContext.search || ''} favoriteOfferings={settings.favoriteOfferings || []} onToggleFavoriteOffering={(id) => toggleFavorite('Offering', id)} />;
           case 'quotes': return <QuotesView onBack={() => setView('home')} />;
           case 'timeline': return <TimelineView onBack={() => setView('home')} setView={setView} killers={killers} survivors={survivors} theme={theme} />;
           case 'settings': return <SettingsView onBack={() => setView('home')} settings={settings} setSettings={setSettings} />;
           case 'favorites': return <FavoritesView onBack={() => setView('home')} settings={settings} killers={killers} survivors={survivors} perks={perks} items={items} addons={addons} offerings={offerings} toggleFavorite={toggleFavorite} setView={setView} onPerkTap={setSelectedPerk} />;
-          default: return <HomeView setView={setView} data={{ killers, survivors, perks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} />;
+          default: return <HomeView setView={setView} data={{ killers: visibleKillers, survivors: visibleSurvivors, perks: visiblePerks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={visiblePerks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={visibleAddons} offerings={offerings} />;
         }
       };
       return (
@@ -9939,6 +11418,8 @@
             <MapLayoutModal
               map={layoutMap}
               onClose={() => setLayoutMap(null)}
+              noteValue={getEntityNote('map', layoutMap?.id)}
+              onNoteChange={(value) => setEntityNote('map', layoutMap?.id, value)}
             />
           )}
           {/* Character Profile Modal */}
@@ -9950,6 +11431,8 @@
               onPerkTap={(perk) => { setProfileCharacter(null); setSelectedPerk(perk); }}
               theme={theme}
               settings={settings}
+              noteValue={profileCharacter && (profileCharacter.type === 'Killer' || profileCharacter.power) ? getEntityNote('killer', profileCharacter.id) : ''}
+              onNoteChange={(value) => setEntityNote('killer', profileCharacter?.id, value)}
             />
           )}
           {/* Bottom Sheet for perk details */}
@@ -9958,6 +11441,8 @@
             onClose={() => setSelectedPerk(null)}
             perk={selectedPerk}
             settings={settings}
+            noteValue={getEntityNote('perk', selectedPerk?.id)}
+            onNoteChange={(value) => setEntityNote('perk', selectedPerk?.id, value)}
           />
         </div>
       );

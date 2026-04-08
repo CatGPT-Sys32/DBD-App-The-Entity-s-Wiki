@@ -10,7 +10,9 @@ const ROOT = path.resolve(__dirname, '..');
 const WEB_ROOT = path.join(ROOT, 'web');
 const INDEX_PATH = path.join(WEB_ROOT, 'index.html');
 const DATA_PATH = path.join(WEB_ROOT, 'data.js');
+const WORLDLE_DATA_PATH = path.join(WEB_ROOT, 'worldle-data.js');
 const CAPACITOR_CONFIG_PATH = path.join(ROOT, 'capacitor.config.json');
+const ANDROID_MANIFEST_PATH = path.join(ROOT, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
 
 const issues = [];
 const warnings = [];
@@ -33,6 +35,14 @@ function parseDatabase() {
   vm.createContext(sandbox);
   vm.runInContext(`${code}\nthis.DATABASE = DATABASE;`, sandbox);
   return sandbox.DATABASE;
+}
+
+function parseWorldleData() {
+  const code = fs.readFileSync(WORLDLE_DATA_PATH, 'utf8');
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(`${code}\nthis.WORLDLE_DATA = WORLDLE_DATA;`, sandbox);
+  return sandbox.WORLDLE_DATA;
 }
 
 function auditHtml(indexHtml) {
@@ -75,12 +85,31 @@ function auditCapacitorConfig() {
   }
 }
 
+function auditAndroidManifest() {
+  const manifest = fs.readFileSync(ANDROID_MANIFEST_PATH, 'utf8');
+  if (/android\.permission\.INTERNET/.test(manifest)) {
+    fail('AndroidManifest.xml declares android.permission.INTERNET, which breaks the strict offline contract.');
+  }
+}
+
+function auditRoutes(indexHtml) {
+  const setViewTargets = new Set([...indexHtml.matchAll(/setView\(\s*['"]([^'"]+)['"]/g)].map(match => match[1]));
+  const renderedRoutes = new Set([...indexHtml.matchAll(/case\s+['"]([^'"]+)['"]\s*:/g)].map(match => match[1]));
+  renderedRoutes.add('home');
+  setViewTargets.forEach((route) => {
+    if (!renderedRoutes.has(route)) {
+      fail(`setView() target "${route}" does not match any rendered route in App.renderContent().`);
+    }
+  });
+}
+
 function auditRequiredFiles(indexHtml) {
   const requiredFiles = [
     'web/vendor/react.production.min.js',
     'web/vendor/react-dom.production.min.js',
     'web/vendor/babel.min.js',
     'web/vendor/tailwindcss.min.js',
+    'web/worldle-data.js',
     'web/assets/default-killer.png',
     'web/assets/default-survivor.png',
     'web/assets/default-perk.svg',
@@ -109,12 +138,52 @@ function auditDatabaseImages(db) {
   issuesFromDatabase.forEach((message) => fail(`Generated DATABASE image issue: ${message}`));
 }
 
+function auditWorldle(indexHtml, db, worldleData) {
+  const killers = Array.isArray(db.killers) ? db.killers : [];
+  const perks = Array.isArray(db.perks) ? db.perks : [];
+  const aliases = worldleData?.aliases || {};
+  const genders = worldleData?.genders || {};
+  const emojiClues = worldleData?.emojiClues || {};
+
+  const killerStatsMatches = [...indexHtml.matchAll(/"([^"]+)":\s*\{\s*terrorRadius:\s*"[^"]+",\s*speed:\s*"[^"]+",\s*height:\s*"[^"]+"/g)];
+  const killerStatsNames = new Set(killerStatsMatches.map((match) => match[1]));
+
+  killers.forEach((killer) => {
+    if (!killerStatsNames.has(killer.name)) {
+      fail(`Worldle classic metadata is missing KILLER_STATS for "${killer.name}".`);
+    }
+    if (!Array.isArray(aliases[killer.name]) || aliases[killer.name].length === 0) {
+      fail(`Worldle alias metadata is missing entries for "${killer.name}".`);
+    }
+    if (typeof genders[killer.name] !== 'string' || !genders[killer.name]) {
+      fail(`Worldle gender metadata is missing for "${killer.name}".`);
+    }
+    if (!Array.isArray(emojiClues[killer.name]) || emojiClues[killer.name].length < 3) {
+      fail(`Worldle emoji clues are missing or incomplete for "${killer.name}".`);
+    }
+  });
+
+  const survivorPerks = perks.filter((perk) => perk.type === 'Survivor');
+  const killerPerks = perks.filter((perk) => perk.type === 'Killer');
+  const teachableKillers = killers.filter((killer) => perks.filter((perk) => perk.owner === killer.name).length === 3);
+
+  if (killers.length === 0) fail('Worldle classic/emoji killer pool is empty.');
+  if (survivorPerks.length === 0) fail('Worldle survivor perk pool is empty.');
+  if (killerPerks.length === 0) fail('Worldle killer perk pool is empty.');
+  if (teachableKillers.length === 0) fail('Worldle teachables pool is empty.');
+}
+
 function main() {
   const indexHtml = fs.readFileSync(INDEX_PATH, 'utf8');
+  const database = parseDatabase();
+  const worldleData = parseWorldleData();
   auditHtml(indexHtml);
   auditCapacitorConfig();
+  auditAndroidManifest();
+  auditRoutes(indexHtml);
   auditRequiredFiles(indexHtml);
-  auditDatabaseImages(parseDatabase());
+  auditDatabaseImages(database);
+  auditWorldle(indexHtml, database, worldleData);
 
   if (warnings.length) {
     console.log('Warnings:');
