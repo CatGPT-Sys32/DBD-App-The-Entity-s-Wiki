@@ -9,8 +9,10 @@ const WEB_ROOT = path.join(ROOT, 'web');
 
 const DATABASE_PATH = path.join(CONTENT_ROOT, 'database.json');
 const TIMELINE_PATH = path.join(CONTENT_ROOT, 'timeline.json');
+const COSMETICS_PATH = path.join(CONTENT_ROOT, 'cosmetics.json');
 const WEB_DATABASE_PATH = path.join(WEB_ROOT, 'data.js');
 const WEB_TIMELINE_PATH = path.join(WEB_ROOT, 'lore.js');
+const WEB_COSMETICS_PATH = path.join(WEB_ROOT, 'cosmetics.js');
 
 const DATABASE_KEYS = [
   'killers',
@@ -81,6 +83,99 @@ function validateTimeline(timeline) {
   }
 }
 
+function validateCosmeticEntries(entries, groupKey, database) {
+  if (!Array.isArray(entries)) {
+    fail(`content/cosmetics.json key "${groupKey}" must be an array.`);
+  }
+  const charactersById = new Map([
+    ...(database.killers || []).map((killer) => [killer.id, { ...killer, type: 'Killer' }]),
+    ...(database.survivors || []).map((survivor) => [survivor.id, { ...survivor, type: 'Survivor' }])
+  ]);
+
+  entries.forEach((entry, index) => {
+    const label = `content/cosmetics.json ${groupKey} entry #${index + 1}`;
+    ensureObject(entry, label);
+
+    const requiredStringFields = [
+      'id',
+      'name',
+      'baseCharacterId',
+      'baseCharacterName',
+      'baseCharacterType',
+      'groupKey',
+      'groupLabel',
+      'image',
+      'sourceKind',
+      'sourcePage',
+      'assetProvenance',
+      'status'
+    ];
+    requiredStringFields.forEach((field) => {
+      if (typeof entry[field] !== 'string' || !entry[field].trim()) {
+        fail(`${label} field "${field}" must be a non-empty string.`);
+      }
+    });
+
+    if (!Array.isArray(entry.aliases) || entry.aliases.some((alias) => typeof alias !== 'string' || !alias.trim())) {
+      fail(`${label} field "aliases" must be an array of non-empty strings.`);
+    }
+
+    if (!Array.isArray(entry.assetFileTitleCandidates) || entry.assetFileTitleCandidates.some((title) => typeof title !== 'string' || !title.trim())) {
+      fail(`${label} field "assetFileTitleCandidates" must be an array of non-empty strings.`);
+    }
+
+    if (/^https?:\/\//i.test(entry.image) || !entry.image.startsWith('./')) {
+      fail(`${label} field "image" must be a local web path starting with "./".`);
+    }
+
+    if (!['Killer', 'Survivor'].includes(entry.baseCharacterType)) {
+      fail(`${label} field "baseCharacterType" must be either "Killer" or "Survivor".`);
+    }
+    if (!['ready', 'blocked_art', 'blocked_mapping', 'excluded'].includes(entry.status)) {
+      fail(`${label} field "status" must be one of ready, blocked_art, blocked_mapping, excluded.`);
+    }
+
+    const baseCharacter = charactersById.get(entry.baseCharacterId);
+    if (!baseCharacter) {
+      fail(`${label} references an unknown base character id: ${entry.baseCharacterId}`);
+    }
+    if (baseCharacter && baseCharacter.name !== entry.baseCharacterName) {
+      fail(`${label} baseCharacterName "${entry.baseCharacterName}" does not match database character "${baseCharacter.name}".`);
+    }
+    if (baseCharacter && baseCharacter.type !== entry.baseCharacterType) {
+      fail(`${label} baseCharacterType "${entry.baseCharacterType}" does not match database character type "${baseCharacter.type}".`);
+    }
+
+    if (entry.status === 'ready') {
+      const imagePath = path.join(WEB_ROOT, entry.image.replace(/^\.\//, ''));
+      if (!fs.existsSync(imagePath)) {
+        fail(`${label} references a missing local asset: ${path.relative(ROOT, imagePath)}`);
+      }
+    }
+  });
+}
+
+function validateCosmeticsCatalog(catalog, database) {
+  ensureObject(catalog, 'content/cosmetics.json');
+  const keys = Object.keys(catalog);
+  const requiredKeys = ['generatedAt', 'metadata', 'characterSwaps', 'fullSets'];
+  const missing = requiredKeys.filter((key) => !(key in catalog));
+  if (missing.length) {
+    fail(`content/cosmetics.json is missing required keys: ${missing.join(', ')}`);
+  }
+
+  validateCosmeticEntries(catalog.characterSwaps, 'characterSwaps', database);
+  validateCosmeticEntries(catalog.fullSets, 'fullSets', database);
+
+  const seenIds = new Set();
+  [...catalog.characterSwaps, ...catalog.fullSets].forEach((entry) => {
+    if (seenIds.has(entry.id)) {
+      fail(`content/cosmetics.json has a duplicate cosmetic id: ${entry.id}`);
+    }
+    seenIds.add(entry.id);
+  });
+}
+
 function toJson(value) {
   return JSON.stringify(value, null, 2);
 }
@@ -129,6 +224,17 @@ function generateTimelineModule(timeline) {
   ].join('\n');
 }
 
+function generateCosmeticsModule(catalog) {
+  return [
+    `var COSMETICS_CATALOG = ${toJson(catalog)};`,
+    '',
+    "if (typeof module !== 'undefined' && module.exports) {",
+    '  module.exports = COSMETICS_CATALOG;',
+    '}',
+    ''
+  ].join('\n');
+}
+
 function compareOutput(filePath, nextContent) {
   const currentContent = fs.readFileSync(filePath, 'utf8');
   return currentContent === nextContent;
@@ -142,17 +248,21 @@ function writeOutput(filePath, content) {
 function main() {
   const database = readJson(DATABASE_PATH);
   const timeline = readJson(TIMELINE_PATH);
+  const cosmeticsCatalog = readJson(COSMETICS_PATH);
 
   validateDatabase(database);
   validateTimeline(timeline);
+  validateCosmeticsCatalog(cosmeticsCatalog, database);
 
   const nextDatabaseModule = generateDatabaseModule(database);
   const nextTimelineModule = generateTimelineModule(timeline);
+  const nextCosmeticsModule = generateCosmeticsModule(cosmeticsCatalog);
 
   if (checkMode) {
     const staleFiles = [];
     if (!compareOutput(WEB_DATABASE_PATH, nextDatabaseModule)) staleFiles.push('web/data.js');
     if (!compareOutput(WEB_TIMELINE_PATH, nextTimelineModule)) staleFiles.push('web/lore.js');
+    if (!compareOutput(WEB_COSMETICS_PATH, nextCosmeticsModule)) staleFiles.push('web/cosmetics.js');
 
     if (staleFiles.length) {
       console.error(`build-data: generated output is stale: ${staleFiles.join(', ')}`);
@@ -165,6 +275,7 @@ function main() {
 
   writeOutput(WEB_DATABASE_PATH, nextDatabaseModule);
   writeOutput(WEB_TIMELINE_PATH, nextTimelineModule);
+  writeOutput(WEB_COSMETICS_PATH, nextCosmeticsModule);
 }
 
 main();

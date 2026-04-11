@@ -210,10 +210,10 @@ const IMAGE_ALIASES = {
     'iconsfavors_6thanniversary.png': 'iconfavors_frightfulflan.png',
     'iconsfavors_7thanniversary.png': 'iconfavors_terrormisu.png',
     'iconsfavors_8thanniversary.png': 'iconfavors_screechcobbler.png',
-    't_ui_iconsfavors_9thanniversary.png': 'iconfavors_frightfulflan.png',
+    't_ui_iconsfavors_9thanniversary.png': 'iconfavors_9thanniversary.png',
     'iconsfavors_rpdbadge.png': 'iconfavors_rpdbadge.png',
     'iconsfavors_winter.png': 'iconfavors_mistletoes.png',
-    't_ui_iconsfavors_shroudofvanishing.png': 'iconfavors_vigosshroud.png',
+    't_ui_iconsfavors_shroudofvanishing.png': 'iconfavors_shroudofvanishing.png',
     'iconfavors_jarofsaltylips.png': 'iconfavors_vigosjarofsaltylips.png'
   },
   Survivor: {
@@ -528,7 +528,7 @@ function resolveSpecialImagePath(categoryKey, entry, getDirEntries) {
   }
 
   if (categoryKey === 'offerings' && entry.internalId === 'Winter2024Offering') {
-    return 'dbd_images/offerings/iconfavors_missing.png';
+    return 'dbd_images/offerings/iconfavors_mistletoes.png';
   }
 
   if (categoryKey === 'addons' && normalizeLocalPath(entry.image).endsWith('/Missing')) {

@@ -5537,7 +5537,7 @@ var DATABASE = {
       "rarity": "common",
       "retired": false,
       "secret": false,
-      "image": "dbd_images/offerings/iconfavors_frightfulflan.png"
+      "image": "dbd_images/offerings/iconfavors_9thanniversary.png"
     },
     {
       "id": "b459c9bc-ea16-4ecc-8571-43aef2b42fa4",
@@ -7093,7 +7093,7 @@ var DATABASE = {
       "rarity": "uncommon",
       "retired": false,
       "secret": true,
-      "image": "dbd_images/offerings/iconfavors_vigosshroud.png"
+      "image": "dbd_images/offerings/iconfavors_shroudofvanishing.png"
     },
     {
       "id": "5acc0854-771d-4d97-b29e-41b4c23a8d19",
@@ -7484,7 +7484,7 @@ var DATABASE = {
       "rarity": "veryrare",
       "retired": false,
       "secret": false,
-      "image": "dbd_images/offerings/iconfavors_missing.png"
+      "image": "dbd_images/offerings/iconfavors_mistletoes.png"
     },
     {
       "id": "00ab17e2-243d-42b6-9b0a-eece8731e6d4",

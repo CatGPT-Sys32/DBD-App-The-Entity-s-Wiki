@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 const WEB_ROOT = path.join(ROOT, 'web');
 const INDEX_PATH = path.join(WEB_ROOT, 'index.html');
 const DATA_PATH = path.join(WEB_ROOT, 'data.js');
+const COSMETICS_DATA_PATH = path.join(WEB_ROOT, 'cosmetics.js');
 const WORLDLE_DATA_PATH = path.join(WEB_ROOT, 'worldle-data.js');
 const CAPACITOR_CONFIG_PATH = path.join(ROOT, 'capacitor.config.json');
 const ANDROID_MANIFEST_PATH = path.join(ROOT, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
@@ -43,6 +44,14 @@ function parseWorldleData() {
   vm.createContext(sandbox);
   vm.runInContext(`${code}\nthis.WORLDLE_DATA = WORLDLE_DATA;`, sandbox);
   return sandbox.WORLDLE_DATA;
+}
+
+function parseCosmeticsData() {
+  const code = fs.readFileSync(COSMETICS_DATA_PATH, 'utf8');
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(`${code}\nthis.COSMETICS_CATALOG = COSMETICS_CATALOG;`, sandbox);
+  return sandbox.COSMETICS_CATALOG;
 }
 
 function normalizeEmojiClueSets(rawSets) {
@@ -130,6 +139,7 @@ function auditRequiredFiles(indexHtml) {
     'web/vendor/react-dom.production.min.js',
     'web/vendor/babel.min.js',
     'web/vendor/tailwindcss.min.js',
+    'web/cosmetics.js',
     'web/worldle-data.js',
     'web/assets/default-killer.png',
     'web/assets/default-survivor.png',
@@ -152,6 +162,10 @@ function auditRequiredFiles(indexHtml) {
   mapLayouts.forEach((relPath) => {
     if (!fileExists(relPath)) warn(`Missing map layout asset referenced in web/index.html: ${relPath}`);
   });
+
+  if (!/<script\s+src=["']cosmetics\.js["']><\/script>/.test(indexHtml)) {
+    fail('web/index.html does not load web/cosmetics.js.');
+  }
 }
 
 function auditDatabaseImages(db) {
@@ -214,9 +228,85 @@ function auditWorldle(indexHtml, db, worldleData) {
   }
 }
 
+function auditCosmetics(db, catalog) {
+  const charactersById = new Map([
+    ...(Array.isArray(db.killers) ? db.killers : []).map((killer) => [killer.id, { ...killer, type: 'Killer' }]),
+    ...(Array.isArray(db.survivors) ? db.survivors : []).map((survivor) => [survivor.id, { ...survivor, type: 'Survivor' }])
+  ]);
+  const seenIds = new Set();
+  const groups = [
+    { key: 'characterSwaps', label: 'Character swap cosmetic' },
+    { key: 'fullSets', label: 'Full set cosmetic' }
+  ];
+
+  groups.forEach(({ key, label: groupLabel }) => {
+    const entries = Array.isArray(catalog?.[key]) ? catalog[key] : [];
+    entries.forEach((entry, index) => {
+      const label = `${groupLabel} entry #${index + 1}`;
+      if (!entry || typeof entry !== 'object') {
+        fail(`${label} is not a valid object.`);
+        return;
+      }
+      if (typeof entry.id !== 'string' || !entry.id) {
+        fail(`${label} is missing a valid id.`);
+        return;
+      }
+      if (seenIds.has(entry.id)) {
+        fail(`Cosmetic id "${entry.id}" is duplicated.`);
+      }
+      seenIds.add(entry.id);
+      if (typeof entry.baseCharacterId !== 'string' || !charactersById.has(entry.baseCharacterId)) {
+        fail(`Cosmetic "${entry.id}" references an unknown base character id.`);
+      } else {
+        const baseCharacter = charactersById.get(entry.baseCharacterId);
+        if (typeof entry.baseCharacterName !== 'string' || entry.baseCharacterName !== baseCharacter.name) {
+          fail(`Cosmetic "${entry.id}" has a mismatched baseCharacterName.`);
+        }
+        if (!['Killer', 'Survivor'].includes(entry.baseCharacterType) || entry.baseCharacterType !== baseCharacter.type) {
+          fail(`Cosmetic "${entry.id}" has an invalid baseCharacterType.`);
+        }
+      }
+      if (typeof entry.image !== 'string' || !entry.image.startsWith('./') || /^https?:\/\//i.test(entry.image)) {
+        fail(`Cosmetic "${entry.id}" must reference a bundled local image.`);
+        return;
+      }
+      if (entry.status === 'ready') {
+        const imagePath = path.join(WEB_ROOT, entry.image.replace(/^\.\//, ''));
+        if (!fs.existsSync(imagePath)) {
+          fail(`Cosmetic "${entry.id}" is missing its bundled asset: ${path.relative(ROOT, imagePath)}`);
+        }
+      }
+    });
+  });
+}
+
+function auditOfferingFixes(db) {
+  const requiredOfferings = {
+    'MISTLE TOES': 'dbd_images/offerings/iconfavors_mistletoes.png',
+    'Shroud of Vanishing': 'dbd_images/offerings/iconfavors_shroudofvanishing.png',
+    'Coconut Scream Pie': 'dbd_images/offerings/iconfavors_9thanniversary.png'
+  };
+
+  Object.entries(requiredOfferings).forEach(([name, expectedImage]) => {
+    const offering = (Array.isArray(db.offerings) ? db.offerings : []).find((entry) => entry.name === name);
+    if (!offering) {
+      fail(`Offering "${name}" is missing from DATABASE.`);
+      return;
+    }
+    if (offering.image !== expectedImage) {
+      fail(`Offering "${name}" must use ${expectedImage}, found ${offering.image}.`);
+    }
+    const imagePath = path.join(WEB_ROOT, expectedImage);
+    if (!fs.existsSync(imagePath)) {
+      fail(`Offering "${name}" is missing its bundled fixed icon: ${path.relative(ROOT, imagePath)}`);
+    }
+  });
+}
+
 function main() {
   const indexHtml = fs.readFileSync(INDEX_PATH, 'utf8');
   const database = parseDatabase();
+  const cosmeticsCatalog = parseCosmeticsData();
   const worldleData = parseWorldleData();
   auditHtml(indexHtml);
   auditCapacitorConfig();
@@ -224,6 +314,8 @@ function main() {
   auditRoutes(indexHtml);
   auditRequiredFiles(indexHtml);
   auditDatabaseImages(database);
+  auditCosmetics(database, cosmeticsCatalog);
+  auditOfferingFixes(database);
   auditWorldle(indexHtml, database, worldleData);
 
   if (warnings.length) {

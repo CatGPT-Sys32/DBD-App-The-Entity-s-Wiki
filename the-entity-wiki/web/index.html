@@ -2,13 +2,6 @@
 <html lang="en">
 
 <head>
-  <!--
-    TODO: Missing offering images that need to be obtained manually:
-    - MISTLE TOES (iconsFavors_Winter)
-    - Shroud of Vanishing (T_UI_iconsFavors_shroudOfVanishing) - currently using Vigo's Shroud
-    - Coconut Scream Pie / 9th Anniversary (T_UI_iconsFavors_9thAnniversary) - currently using Frightful Flan
-    These images are blocked by Cloudflare and need to be downloaded from game files or browser.
-  -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>DBD Companion App</title>
@@ -33,6 +26,22 @@
       --shadow-strong: 0 16px 60px rgba(0, 0, 0, 0.45);
       --accent: #38bdf8;
       --accent-soft: #102033;
+      --app-shell-bg: linear-gradient(180deg, var(--bg-01), var(--bg-02));
+      --ambient-glow: radial-gradient(120% 120% at 20% 20%, rgba(56, 189, 248, 0.08), transparent 55%);
+      --ambient-opacity: 0.35;
+      --selection-bg: rgba(56, 189, 248, 0.2);
+      --selection-text: #ffffff;
+      --full-panel-bg: var(--panel);
+      --full-panel-border: var(--stroke);
+      --full-button-bg: #0a0a0a;
+      --full-button-border: var(--stroke);
+      --full-button-text: var(--muted);
+      --full-button-active-bg: #0a0a0a;
+      --full-select-bg: var(--glass-bg);
+      --full-select-border: var(--stroke);
+      --full-select-text: var(--text);
+      --full-select-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 28px rgba(0, 0, 0, 0.35);
+      --full-select-focus-ring: rgba(56, 189, 248, 0.25);
     }
 
     body {
@@ -48,8 +57,8 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: radial-gradient(120% 120% at 20% 20%, rgba(56, 189, 248, 0.08), transparent 55%);
-      opacity: 0.35;
+      background: var(--ambient-glow);
+      opacity: var(--ambient-opacity);
       pointer-events: none;
       z-index: 0;
     }
@@ -220,7 +229,7 @@
     }
 
     .app-shell {
-      background: linear-gradient(180deg, var(--bg-01), var(--bg-02));
+      background: var(--app-shell-bg);
       border: 1px solid var(--stroke);
     }
 
@@ -232,54 +241,41 @@
       background: #000000;
     }
 
-    body.nord-mode {
-      background: linear-gradient(160deg, #2E3440, #3B4252);
+    body.full-palette-mode {
+      color-scheme: dark;
     }
 
-    body.nord-mode::before {
-      background: radial-gradient(120% 120% at 20% 20%, rgba(136, 192, 208, 0.06), transparent 55%);
-      opacity: 0.4;
+    .full-palette-mode .glass-panel {
+      background: var(--full-panel-bg);
+      border-color: var(--full-panel-border);
     }
 
-    .nord-mode .app-shell {
-      background: linear-gradient(180deg, #2E3440, #3B4252);
-      border-color: #4C566A;
+    .full-palette-mode .glass-button {
+      background: var(--full-button-bg);
+      border-color: var(--full-button-border);
+      color: var(--full-button-text);
     }
 
-    .nord-mode ::selection {
-      background: rgba(136, 192, 208, 0.25);
-      color: #ECEFF4;
+    .full-palette-mode .glass-button--active {
+      background: var(--full-button-active-bg);
+      color: var(--accent);
+      border-color: var(--accent);
     }
 
-    .nord-mode .glass-panel {
-      background: rgba(67, 76, 94, 0.5);
-      border-color: rgba(136, 192, 208, 0.15);
+    .full-palette-mode .themed-select {
+      background: var(--full-select-bg);
+      color: var(--full-select-text);
+      border-color: var(--full-select-border);
+      box-shadow: var(--full-select-shadow);
     }
 
-    .nord-mode .glass-button {
-      background: #3B4252;
-      border-color: #4C566A;
-      color: #D8DEE9;
-    }
-
-    .nord-mode .glass-button--active {
-      color: #88C0D0;
-      border-color: #88C0D0;
-    }
-
-    .nord-mode .themed-select {
-      background: #3B4252;
-      color: #ECEFF4;
-      border-color: #4C566A;
-    }
-
-    .nord-mode .themed-select:focus {
-      border-color: #88C0D0;
+    .full-palette-mode .themed-select:focus {
+      border-color: var(--accent);
     }
 
     ::selection {
-      background: rgba(56, 189, 248, 0.2);
-      color: white;
+      background: var(--selection-bg);
+      color: var(--selection-text);
     }
 
     html,
@@ -386,26 +382,6 @@
       }
     }
 
-    .high-contrast .glass-panel,
-    .high-contrast .nav-shell {
-      border-color: rgba(255, 255, 255, 0.18);
-      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
-    }
-
-    .high-contrast .glass-button,
-    .high-contrast .themed-select {
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .high-contrast .chip {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.18);
-    }
-
-    .high-contrast .nav-item--active {
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
-    }
-
     .light-mode {
       color-scheme: light;
     }
@@ -479,7 +455,7 @@
     .themed-select:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 0 2px var(--full-select-focus-ring);
     }
 
     .themed-select option {
@@ -757,20 +733,28 @@
   <div id="root"></div>
   <script src="data.js"></script>
   <script src="lore.js"></script>
+  <script src="cosmetics.js"></script>
   <script src="worldle-data.js"></script>
   <script>
     (() => {
       const LAUNCH_TIPS = [
-        'Break line of sight before you commit to a predictable vault.',
+        'Do not tunnel the Sable players.',
+        'Fixated is the best perk but no one wants to admit it.',
         'Hook pressure often wins more matches than a single overlong chase.',
         'Save exhaustion perks for distance, not comfort.',
-        'Against ranged killers, cover matters more than raw movement speed.',
-        'Do not stack on generators against killers with strong mobility.',
-        'A safe pallet used early is often worth more than a greedy extra loop.',
-        'Track revealed perks and addons quickly so the rest of the match gets easier.',
-        'If a Hex shows up early, remember the totem location before you leave it.',
-        'Healing is strongest when it changes the next chase, not just the current moment.',
-        'A clean rotation between objectives usually creates more value than tunnel vision.'
+        'Against ranged killers, cover and LOS matters.',
+        'Do not stack on generators, optimum is 2 per generator.',
+        'Doing gens? You?',
+        'Try not to get gens done too quickly and end up in a 3 gen',
+        'You have a 1 in 14 chance of seeing this loading screen tip.',
+        'Healing is strongest way to relieve pressure, but it is not the only way.',
+        'Nerf Trapper.',
+        'DBD is so killer sided.',
+        'DBD is so survivor sided.',
+        'Nerf Pig.',
+        'You summoned him, he came.',
+        'Erm uh uhm',
+        'Robin Buckley is the best legendary skin.',
       ];
       const overlay = document.getElementById('launch-overlay');
       const tipEl = document.getElementById('launch-overlay-tip');
@@ -794,7 +778,7 @@
     })();
   </script>
   <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
+    const { useState, useEffect, useMemo, useRef, useCallback } = React;
     const triggerHaptic = async (style = 'Medium') => {
       try {
         const stored = localStorage.getItem('dbd_settings_v1');
@@ -1095,7 +1079,7 @@
       }
     };
     const META = {
-      appVersion: "5.24.0",
+      appVersion: "5.27.0",
       gameVersion: "9.5.0",
       lastSynced: "March 29, 2026",
       contact: {
@@ -1111,6 +1095,37 @@
       ]
     };
     const CHANGELOG = [
+      {
+        version: "5.27.0",
+        date: "April 10, 2026",
+        changes: [
+          "FIX : Wordle now accepts both legacy and current perk names for bloodweb perks",
+          "FIX : Typing perk categories like Hex, Boon, and Scourge Hook now shows the correct alphabetical suggestions",
+          "FIX : Settings toggles no longer black out part of the screen on mobile",
+          "UPDATE : Added new loading screen tips"
+        ]
+      },
+      {
+        version: "5.26.0",
+        date: "April 10, 2026",
+        changes: [
+          "NEW : Added the full official legendary portrait set for all characters",
+          "NEW : Added four new full-palette themes: Catppuccin Macchiato, Tokyo Night, Everforest, and Rose Pine Moon",
+          "UPDATE : Settings toggles now use better tick boxes and High Contrast mode was removed",
+          "FIX : Build Lab perks are now sorted alphabetically and show updated names"
+        ]
+      },
+      {
+        version: "5.25.0",
+        date: "April 8, 2026",
+        changes: [
+          "NEW : Added a launch screen while the app loads",
+          "UPDATE : Wordle has a better mobile layout, and added a practice mode for Classic and Emoji",
+          "UPDATE : Added more emojis and combinations for Wordle",
+          "FIX : Navigation bar being overloaded with all items at once",
+          "FIX : Removed the perk option from progression"
+        ]
+      },
       {
         version: "5.24.0",
         date: "April 8, 2026",
@@ -1554,7 +1569,179 @@
           ghost: 'rgba(216, 222, 233, 0.06)',
           ghostStrong: 'rgba(216, 222, 233, 0.16)',
           shadowSoft: '0 8px 30px rgba(0, 0, 0, 0.3)',
-          shadowStrong: '0 16px 60px rgba(0, 0, 0, 0.4)'
+          shadowStrong: '0 16px 60px rgba(0, 0, 0, 0.4)',
+          appShellBg: 'linear-gradient(180deg, #2E3440, #3B4252)',
+          ambientGlow: 'radial-gradient(120% 120% at 20% 20%, rgba(136, 192, 208, 0.06), transparent 55%)',
+          ambientOpacity: '0.4',
+          selectionBg: 'rgba(136, 192, 208, 0.25)',
+          selectionText: '#ECEFF4',
+          fullPanelBg: 'rgba(67, 76, 94, 0.5)',
+          fullPanelBorder: 'rgba(136, 192, 208, 0.15)',
+          fullButtonBg: '#3B4252',
+          fullButtonBorder: '#4C566A',
+          fullButtonText: '#D8DEE9',
+          fullButtonActiveBg: '#3B4252',
+          fullSelectBg: '#3B4252',
+          fullSelectBorder: '#4C566A',
+          fullSelectText: '#ECEFF4',
+          fullSelectShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 10px 28px rgba(0, 0, 0, 0.3)',
+          fullSelectFocusRing: 'rgba(136, 192, 208, 0.25)'
+        }
+      },
+      catppuccin: {
+        name: "Catppuccin Macchiato",
+        accent: "#8aadf4",
+        accentSoft: "#363a4f",
+        tileGradient: "linear-gradient(145deg, #1e2030, #24273a)",
+        tileBorder: "rgba(138,173,244,0.32)",
+        tileShadow: "0 0 28px rgba(138,173,244,0.16)",
+        palette: {
+          bg01: '#1e2030',
+          bg02: '#24273a',
+          panel: 'rgba(54, 58, 79, 0.62)',
+          stroke: '#494d64',
+          chip: 'rgba(138, 173, 244, 0.14)',
+          text: '#cad3f5',
+          muted: '#a5adcb',
+          nav: 'rgba(30, 32, 48, 0.95)',
+          glass: '#363a4f',
+          ghost: 'rgba(202, 211, 245, 0.06)',
+          ghostStrong: 'rgba(202, 211, 245, 0.16)',
+          shadowSoft: '0 8px 30px rgba(0, 0, 0, 0.34)',
+          shadowStrong: '0 16px 60px rgba(0, 0, 0, 0.44)',
+          appShellBg: 'linear-gradient(180deg, #1e2030, #24273a)',
+          ambientGlow: 'radial-gradient(120% 120% at 20% 20%, rgba(138, 173, 244, 0.12), transparent 55%)',
+          ambientOpacity: '0.42',
+          selectionBg: 'rgba(138, 173, 244, 0.24)',
+          selectionText: '#cad3f5',
+          fullPanelBg: 'rgba(54, 58, 79, 0.52)',
+          fullPanelBorder: 'rgba(138, 173, 244, 0.14)',
+          fullButtonBg: '#2d3146',
+          fullButtonBorder: '#494d64',
+          fullButtonText: '#a5adcb',
+          fullButtonActiveBg: '#363a4f',
+          fullSelectBg: '#363a4f',
+          fullSelectBorder: '#494d64',
+          fullSelectText: '#cad3f5',
+          fullSelectShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 10px 28px rgba(0, 0, 0, 0.34)',
+          fullSelectFocusRing: 'rgba(138, 173, 244, 0.24)'
+        }
+      },
+      tokyonight: {
+        name: "Tokyo Night",
+        accent: "#7aa2f7",
+        accentSoft: "#2f334d",
+        tileGradient: "linear-gradient(145deg, #16161e, #1a1b26)",
+        tileBorder: "rgba(122,162,247,0.34)",
+        tileShadow: "0 0 30px rgba(122,162,247,0.18)",
+        palette: {
+          bg01: '#16161e',
+          bg02: '#1a1b26',
+          panel: 'rgba(36, 40, 59, 0.62)',
+          stroke: '#414868',
+          chip: 'rgba(122, 162, 247, 0.14)',
+          text: '#c0caf5',
+          muted: '#9aa5ce',
+          nav: 'rgba(22, 22, 30, 0.95)',
+          glass: '#24283b',
+          ghost: 'rgba(192, 202, 245, 0.06)',
+          ghostStrong: 'rgba(192, 202, 245, 0.16)',
+          shadowSoft: '0 8px 30px rgba(0, 0, 0, 0.36)',
+          shadowStrong: '0 16px 60px rgba(0, 0, 0, 0.48)',
+          appShellBg: 'linear-gradient(180deg, #16161e, #1a1b26)',
+          ambientGlow: 'radial-gradient(120% 120% at 20% 20%, rgba(122, 162, 247, 0.12), transparent 55%)',
+          ambientOpacity: '0.44',
+          selectionBg: 'rgba(122, 162, 247, 0.24)',
+          selectionText: '#c0caf5',
+          fullPanelBg: 'rgba(36, 40, 59, 0.54)',
+          fullPanelBorder: 'rgba(122, 162, 247, 0.15)',
+          fullButtonBg: '#1f2335',
+          fullButtonBorder: '#414868',
+          fullButtonText: '#9aa5ce',
+          fullButtonActiveBg: '#24283b',
+          fullSelectBg: '#24283b',
+          fullSelectBorder: '#414868',
+          fullSelectText: '#c0caf5',
+          fullSelectShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 10px 28px rgba(0, 0, 0, 0.36)',
+          fullSelectFocusRing: 'rgba(122, 162, 247, 0.24)'
+        }
+      },
+      everforest: {
+        name: "Everforest",
+        accent: "#7fbbb3",
+        accentSoft: "#2f383c",
+        tileGradient: "linear-gradient(145deg, #272e33, #2d353b)",
+        tileBorder: "rgba(127,187,179,0.3)",
+        tileShadow: "0 0 28px rgba(127,187,179,0.14)",
+        palette: {
+          bg01: '#272e33',
+          bg02: '#2d353b',
+          panel: 'rgba(52, 63, 68, 0.64)',
+          stroke: '#475258',
+          chip: 'rgba(127, 187, 179, 0.13)',
+          text: '#d3c6aa',
+          muted: '#9da9a0',
+          nav: 'rgba(39, 46, 51, 0.95)',
+          glass: '#343f44',
+          ghost: 'rgba(211, 198, 170, 0.06)',
+          ghostStrong: 'rgba(211, 198, 170, 0.15)',
+          shadowSoft: '0 8px 30px rgba(0, 0, 0, 0.34)',
+          shadowStrong: '0 16px 60px rgba(0, 0, 0, 0.44)',
+          appShellBg: 'linear-gradient(180deg, #272e33, #2d353b)',
+          ambientGlow: 'radial-gradient(120% 120% at 20% 20%, rgba(127, 187, 179, 0.1), transparent 55%)',
+          ambientOpacity: '0.4',
+          selectionBg: 'rgba(127, 187, 179, 0.22)',
+          selectionText: '#d3c6aa',
+          fullPanelBg: 'rgba(52, 63, 68, 0.56)',
+          fullPanelBorder: 'rgba(127, 187, 179, 0.13)',
+          fullButtonBg: '#2d353b',
+          fullButtonBorder: '#475258',
+          fullButtonText: '#9da9a0',
+          fullButtonActiveBg: '#343f44',
+          fullSelectBg: '#343f44',
+          fullSelectBorder: '#475258',
+          fullSelectText: '#d3c6aa',
+          fullSelectShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 10px 28px rgba(0, 0, 0, 0.34)',
+          fullSelectFocusRing: 'rgba(127, 187, 179, 0.22)'
+        }
+      },
+      rosepinemoon: {
+        name: "Rosé Pine Moon",
+        accent: "#c4a7e7",
+        accentSoft: "#393552",
+        tileGradient: "linear-gradient(145deg, #232136, #2a273f)",
+        tileBorder: "rgba(196,167,231,0.32)",
+        tileShadow: "0 0 28px rgba(196,167,231,0.16)",
+        palette: {
+          bg01: '#232136',
+          bg02: '#2a273f',
+          panel: 'rgba(57, 53, 82, 0.62)',
+          stroke: '#44415a',
+          chip: 'rgba(196, 167, 231, 0.14)',
+          text: '#e0def4',
+          muted: '#908caa',
+          nav: 'rgba(35, 33, 54, 0.95)',
+          glass: '#393552',
+          ghost: 'rgba(224, 222, 244, 0.06)',
+          ghostStrong: 'rgba(224, 222, 244, 0.16)',
+          shadowSoft: '0 8px 30px rgba(0, 0, 0, 0.34)',
+          shadowStrong: '0 16px 60px rgba(0, 0, 0, 0.44)',
+          appShellBg: 'linear-gradient(180deg, #232136, #2a273f)',
+          ambientGlow: 'radial-gradient(120% 120% at 20% 20%, rgba(196, 167, 231, 0.11), transparent 55%)',
+          ambientOpacity: '0.42',
+          selectionBg: 'rgba(196, 167, 231, 0.22)',
+          selectionText: '#e0def4',
+          fullPanelBg: 'rgba(57, 53, 82, 0.56)',
+          fullPanelBorder: 'rgba(196, 167, 231, 0.14)',
+          fullButtonBg: '#2f2b45',
+          fullButtonBorder: '#44415a',
+          fullButtonText: '#908caa',
+          fullButtonActiveBg: '#393552',
+          fullSelectBg: '#393552',
+          fullSelectBorder: '#44415a',
+          fullSelectText: '#e0def4',
+          fullSelectShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 10px 28px rgba(0, 0, 0, 0.34)',
+          fullSelectFocusRing: 'rgba(196, 167, 231, 0.22)'
         }
       }
     };
@@ -1744,6 +1931,7 @@
       { id: 'roulette', label: 'Shuffle' },
       { id: 'worldle', label: 'Wordle' },
       { id: 'progression', label: 'Progression' },
+      { id: 'cosmetics', label: 'Cosmetics' },
       { id: 'favorites', label: 'Favorites' },
       { id: 'killers', label: 'Killers' },
       { id: 'survivors', label: 'Survivors' },
@@ -1761,6 +1949,7 @@
       { id: 'buildLab', label: 'Build Lab', icon: 'Wrench', desc: 'Craft and save loadouts' },
       { id: 'favorites', label: 'My Favorites', icon: 'Star', desc: 'All your bookmarked content' },
       { id: 'progression', label: 'Progression Hub', icon: 'Target', desc: 'Achievements, roster, challenges and analytics' },
+      { id: 'cosmetics', label: 'Legendary Characters', icon: 'Image', desc: 'Browse character swaps and approved full sets' },
       { id: 'worldle', label: 'Wordle', icon: 'Notepad', desc: 'Daily and practice DBD guessing games' },
       { id: 'matches', label: 'Match Log', icon: 'List', desc: 'Track matches & notes' },
       { id: 'prestige', label: "Entity's Offering", icon: 'Droplet', desc: 'BP calculator for prestiges' },
@@ -1780,6 +1969,7 @@
       roulette: 'Dices',
       worldle: 'Notepad',
       progression: 'Target',
+      cosmetics: 'Image',
       favorites: 'Star',
       killers: 'Sword',
       survivors: 'Heart',
@@ -1814,7 +2004,6 @@
       colorMode: 'oled',
       fontSize: 'default',
       perkDescriptionMode: 'legacy',
-      highContrast: false,
       showTemplates: true,
       rarityGlows: true,
       hapticEnabled: true,
@@ -1822,7 +2011,7 @@
       progressionTabOrder: [...PROGRESSION_TABS],
       navItemsCustomized: false,
       navItems: ['perks', 'killers', 'survivors'],
-      homeTiles: ['killers', 'survivors', 'perks', 'buildLab', 'favorites', 'progression', 'worldle', 'matches', 'roulette', 'realms', 'glossary', 'import', 'timeline'],
+      homeTiles: ['killers', 'survivors', 'perks', 'buildLab', 'favorites', 'progression', 'cosmetics', 'worldle', 'matches', 'roulette', 'realms', 'glossary', 'import', 'timeline'],
       favoritePerks: [],
       favoriteKillers: [],
       favoriteSurvivors: [],
@@ -1844,6 +2033,7 @@
       lastBuildId: null,
       killerWinThreshold: 2
     };
+    const APP_BACKUP_SCHEMA_VERSION = 1;
     const createWorldleHistogram = () => ({
       1: 0,
       2: 0,
@@ -1937,22 +2127,92 @@
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '')
     );
+    const normalizeCosmeticsEntries = (raw) => {
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .map((entry) => {
+          if (!entry || typeof entry !== 'object') return null;
+          if (!entry.id || !entry.name || !entry.baseCharacterId || !entry.baseCharacterName || !entry.baseCharacterType || !entry.groupKey || !entry.groupLabel || !entry.image) return null;
+          return {
+            id: String(entry.id),
+            name: String(entry.name),
+            baseCharacterId: String(entry.baseCharacterId),
+            baseCharacterName: String(entry.baseCharacterName),
+            baseCharacterType: entry.baseCharacterType === 'Killer' ? 'Killer' : 'Survivor',
+            groupKey: String(entry.groupKey),
+            groupLabel: String(entry.groupLabel),
+            collectionName: entry.collectionName ? String(entry.collectionName) : '',
+            image: String(entry.image),
+            aliases: Array.isArray(entry.aliases) ? entry.aliases.filter(Boolean).map((alias) => String(alias)) : [],
+            sourceKind: entry.sourceKind ? String(entry.sourceKind) : '',
+            sourcePage: entry.sourcePage ? String(entry.sourcePage) : '',
+            assetProvenance: entry.assetProvenance ? String(entry.assetProvenance) : '',
+            status: entry.status ? String(entry.status) : 'blocked_art',
+            rarity: entry.rarity ? String(entry.rarity) : '',
+            description: entry.description ? String(entry.description) : ''
+          };
+        })
+        .filter(Boolean);
+    };
+    const normalizeCosmeticsCatalog = (raw) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return { metadata: {}, characterSwaps: [], fullSets: [] };
+      }
+      return {
+        metadata: raw.metadata && typeof raw.metadata === 'object' && !Array.isArray(raw.metadata) ? raw.metadata : {},
+        characterSwaps: normalizeCosmeticsEntries(raw.characterSwaps),
+        fullSets: normalizeCosmeticsEntries(raw.fullSets)
+      };
+    };
+    const readLaunchContext = () => {
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        const view = params.get('view') || 'home';
+        const context = {};
+        ['search', 'mode', 'tab', 'targetId', 'targetType'].forEach((key) => {
+          const value = params.get(key);
+          if (value) context[key] = value;
+        });
+        return {
+          view,
+          context,
+          profileId: params.get('profileId') || '',
+          cosmeticId: params.get('cosmeticId') || ''
+        };
+      } catch (error) {
+        return { view: 'home', context: {}, profileId: '', cosmeticId: '' };
+      }
+    };
     const getNoteKey = (type, id) => `${type}:${id}`;
     const normalizeSettings = (raw) => {
       const next = raw && typeof raw === 'object' ? raw : {};
+      const rest = { ...next };
+      delete rest.highContrast;
       const homeTileIds = [...new Set(ALL_HOME_TILES.map(tile => tile.id))];
       const navOptionIds = ALL_NAV_OPTIONS.map(opt => opt.id);
-      const normalizedNavItems = next.navItemsCustomized === true
-        ? ensureOrderedSubset(next.navItems, navOptionIds, DEFAULT_SETTINGS.navItems)
+      const normalizedNavItems = rest.navItemsCustomized === true
+        ? ensureOrderedSubset(rest.navItems, navOptionIds, DEFAULT_SETTINGS.navItems)
         : [...DEFAULT_SETTINGS.navItems];
       return {
         ...DEFAULT_SETTINGS,
-        ...next,
-        ownedOnlyGlobal: Boolean(next.ownedOnlyGlobal),
-        navItemsCustomized: next.navItemsCustomized === true,
+        ...rest,
+        ownedOnlyGlobal: Boolean(rest.ownedOnlyGlobal),
+        navItemsCustomized: rest.navItemsCustomized === true,
         navItems: normalizedNavItems,
-        homeTiles: ensureOrderedSubset(next.homeTiles, homeTileIds, DEFAULT_SETTINGS.homeTiles),
-        progressionTabOrder: ensureOrderedFullSet(next.progressionTabOrder, PROGRESSION_TABS, DEFAULT_SETTINGS.progressionTabOrder),
+        homeTiles: ensureOrderedSubset(rest.homeTiles, homeTileIds, DEFAULT_SETTINGS.homeTiles),
+        progressionTabOrder: ensureOrderedFullSet(rest.progressionTabOrder, PROGRESSION_TABS, DEFAULT_SETTINGS.progressionTabOrder),
+      };
+    };
+    const normalizeMatchPrefs = (raw) => {
+      const next = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+      const threshold = Number(next.killerWinThreshold);
+      return {
+        ...DEFAULT_MATCH_PREFS,
+        ...next,
+        lastRole: String(next.lastRole || DEFAULT_MATCH_PREFS.lastRole).toLowerCase().includes('kill') ? 'Killer' : 'Survivor',
+        lastCharacterId: next.lastCharacterId ? String(next.lastCharacterId) : null,
+        lastBuildId: next.lastBuildId ? String(next.lastBuildId) : null,
+        killerWinThreshold: Number.isFinite(threshold) && threshold >= 0 ? threshold : DEFAULT_MATCH_PREFS.killerWinThreshold
       };
     };
     const normalizePerkSnapshots = (snapshots = []) => {
@@ -2056,6 +2316,108 @@
         };
       });
       return base;
+    };
+    const createAppBackupPayload = ({
+      settings,
+      builds,
+      matches,
+      progression,
+      notes,
+      worldleState,
+      matchPrefs,
+      appVersion = '',
+      gameVersion = '',
+      lastSynced = ''
+    }) => ({
+      schemaVersion: APP_BACKUP_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      meta: {
+        appVersion,
+        gameVersion,
+        lastSynced
+      },
+      data: {
+        settings: normalizeSettings(settings),
+        builds: Array.isArray(builds) ? builds : [],
+        matches: Array.isArray(matches) ? matches : [],
+        progression: normalizeProgression(progression),
+        notes: normalizeNotesStore(notes),
+        worldle: normalizeWorldleState(worldleState),
+        lastContext: normalizeMatchPrefs(matchPrefs)
+      }
+    });
+    const summarizeAppBackupPayload = (payload) => {
+      const data = payload?.data && typeof payload.data === 'object' ? payload.data : {};
+      const progression = normalizeProgression(data.progression);
+      const worldle = normalizeWorldleState(data.worldle);
+      const worldleGamesPlayed = WORLDLE_MODES.reduce((total, mode) => {
+        const stats = worldle.stats?.[mode];
+        return total
+          + (Number(stats?.daily?.played) || 0)
+          + (Number(stats?.practice?.played) || 0);
+      }, 0);
+      const ownedCharacters = Object.values(progression.characters || {}).filter((entry) => entry?.owned).length;
+      return {
+        schemaVersion: Number(payload?.schemaVersion) || 0,
+        exportedAt: payload?.exportedAt || '',
+        appVersion: payload?.meta?.appVersion || '',
+        gameVersion: payload?.meta?.gameVersion || '',
+        builds: Array.isArray(data.builds) ? data.builds.length : 0,
+        matches: Array.isArray(data.matches) ? data.matches.length : 0,
+        notes: Object.keys(normalizeNotesStore(data.notes)).length,
+        ownedCharacters,
+        challenges: Array.isArray(progression.challenges) ? progression.challenges.length : 0,
+        worldleGamesPlayed
+      };
+    };
+    const parseAppBackupPayload = (rawText) => {
+      const raw = typeof rawText === 'string' ? rawText.trim() : '';
+      if (!raw) throw new Error('Paste a backup JSON file before restoring.');
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (error) {
+        throw new Error('Backup JSON is invalid.');
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Backup file must be a JSON object.');
+      }
+      const looksLikeDirectData =
+        parsed.data === undefined
+        && ['settings', 'builds', 'matches', 'progression', 'notes', 'worldle', 'lastContext'].some((key) => key in parsed);
+      const payload = looksLikeDirectData
+        ? {
+            schemaVersion: 0,
+            exportedAt: '',
+            meta: {},
+            data: parsed
+          }
+        : parsed;
+      if (!payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) {
+        throw new Error('Backup JSON is missing its data block.');
+      }
+      return {
+        payload,
+        summary: summarizeAppBackupPayload(payload)
+      };
+    };
+    const buildBackupFilename = (payload) => {
+      const stamp = String(payload?.exportedAt || new Date().toISOString())
+        .replace(/[:]/g, '-')
+        .replace(/\..+$/, '');
+      const version = payload?.meta?.appVersion || 'backup';
+      return `the-entity-wiki-${version}-${stamp}.json`;
+    };
+    const downloadTextFile = (filename, text, mime = 'application/json') => {
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
     };
     const buildDataLookups = ({ killers = [], survivors = [], perks = [], maps = [], builds = [] }) => {
       const charactersById = {};
@@ -2298,14 +2660,17 @@
     const buildWorldlePerkCatalog = (perks = [], type = 'Survivor') => (
       perks
         .filter(perk => perk.type === type)
-        .map(perk => ({
-          id: perk.id,
-          name: perk.name,
-          owner: perk.owner || '',
-          type: perk.type,
-          image: perk.image,
-          aliasTokens: [normalizeGuessToken(perk.name)]
-        }))
+        .map((perk) => {
+          const aliasTokens = [...new Set([perk.name].concat(perk.aliases || []).map(label => normalizeGuessToken(label)).filter(Boolean))];
+          return {
+            id: perk.id,
+            name: perk.name,
+            owner: perk.owner || '',
+            type: perk.type,
+            image: perk.image,
+            aliasTokens
+          };
+        })
     );
     const buildTeachableCatalog = (killers = [], perks = []) => (
       killers.map((killer) => ({
@@ -2509,6 +2874,135 @@
       const token = normalizeGuessToken(input);
       if (!token) return null;
       return catalog.find(entry => Array.isArray(entry.aliasTokens) && entry.aliasTokens.includes(token)) || null;
+    };
+    const getWorldleCategoryPrefixToken = (label = '') => {
+      const parts = String(label || '').split(':');
+      if (parts.length < 2) return '';
+      return normalizeGuessToken(parts[0]);
+    };
+    const getWorldleGuessEntityLabel = (mode = 'classic') => (
+      mode === 'survivorPerk' || mode === 'killerPerk' || mode === 'teachables' ? 'perk' : 'killer'
+    );
+    const getLevenshteinDistance = (a = '', b = '') => {
+      if (a === b) return 0;
+      if (!a) return b.length;
+      if (!b) return a.length;
+      const matrix = Array.from({ length: a.length + 1 }, (_, rowIndex) => [rowIndex]);
+      for (let columnIndex = 0; columnIndex <= b.length; columnIndex += 1) {
+        matrix[0][columnIndex] = columnIndex;
+      }
+      for (let rowIndex = 1; rowIndex <= a.length; rowIndex += 1) {
+        for (let columnIndex = 1; columnIndex <= b.length; columnIndex += 1) {
+          const cost = a[rowIndex - 1] === b[columnIndex - 1] ? 0 : 1;
+          matrix[rowIndex][columnIndex] = Math.min(
+            matrix[rowIndex - 1][columnIndex] + 1,
+            matrix[rowIndex][columnIndex - 1] + 1,
+            matrix[rowIndex - 1][columnIndex - 1] + cost
+          );
+        }
+      }
+      return matrix[a.length][b.length];
+    };
+    const getWorldleGuessSuggestions = (catalog = [], input = '', limit = 3) => {
+      const token = normalizeGuessToken(input);
+      if (!token || token.length < 2) return [];
+      const categoryPrefixMatches = catalog
+        .filter((entry) => getWorldleCategoryPrefixToken(entry.name) === token)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (categoryPrefixMatches.length > 1) {
+        return categoryPrefixMatches.slice(0, limit).map((entry) => ({
+          entry,
+          score: 0,
+          distance: 0,
+          leadingPrefix: true,
+          reversePrefix: false,
+          prefix: true,
+          contains: false
+        }));
+      }
+      return catalog
+        .map((entry) => {
+          const aliasTokens = Array.isArray(entry.aliasTokens) && entry.aliasTokens.length
+            ? entry.aliasTokens
+            : [normalizeGuessToken(entry.name)];
+          let best = null;
+          aliasTokens.forEach((aliasToken) => {
+            if (!aliasToken) return;
+            const leadingPrefix = aliasToken.startsWith(token);
+            const reversePrefix = !leadingPrefix && token.startsWith(aliasToken);
+            const prefix = leadingPrefix || reversePrefix;
+            const contains = !prefix && (aliasToken.includes(token) || token.includes(aliasToken));
+            const distance = getLevenshteinDistance(token, aliasToken);
+            const threshold = Math.max(1, Math.min(3, Math.floor(Math.max(token.length, aliasToken.length) / 4)));
+            if (!prefix && !contains && distance > threshold) return;
+            const score = distance + (Math.abs(aliasToken.length - token.length) * 0.15) - (leadingPrefix ? 1 : 0) - (contains ? 0.35 : 0) + (reversePrefix ? 0.45 : 0);
+            if (!best || score < best.score) {
+              best = {
+                entry,
+                score,
+                distance,
+                leadingPrefix,
+                reversePrefix,
+                prefix,
+                contains
+              };
+            }
+          });
+          return best;
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          if (a.prefix !== b.prefix) return a.prefix ? -1 : 1;
+          if (a.contains !== b.contains) return a.contains ? -1 : 1;
+          if (a.distance !== b.distance) return a.distance - b.distance;
+          if (a.score !== b.score) return a.score - b.score;
+          return a.entry.name.localeCompare(b.entry.name);
+        })
+        .filter((candidate, index, array) => index === array.findIndex(other => other.entry.id === candidate.entry.id))
+        .slice(0, limit);
+    };
+    const resolveWorldleGuessAttempt = (catalog = [], input = '') => {
+      const exact = resolveWorldleGuess(catalog, input);
+      if (exact) {
+        return {
+          entry: exact,
+          autoCorrected: false,
+          correctedName: exact.name,
+          suggestions: []
+        };
+      }
+      const token = normalizeGuessToken(input);
+      const suggestions = getWorldleGuessSuggestions(catalog, input, 3);
+      if (!suggestions.length) {
+        return {
+          entry: null,
+          autoCorrected: false,
+          correctedName: '',
+          suggestions: []
+        };
+      }
+      const best = suggestions[0];
+      const nextBest = suggestions[1] || null;
+      const leadingPrefixMatches = suggestions.filter(candidate => candidate.leadingPrefix).length;
+      const safeToAutoCorrect = token.length >= 3 && (
+        (best.leadingPrefix && leadingPrefixMatches === 1 && (!nextBest || !nextBest.leadingPrefix || (best.distance + 1 < nextBest.distance)))
+        || (best.distance <= 1 && (!nextBest || best.distance < nextBest.distance))
+        || (best.distance <= 2 && !best.contains && (!nextBest || (best.distance + 2 <= nextBest.distance)))
+      );
+      if (safeToAutoCorrect) {
+        return {
+          entry: best.entry,
+          autoCorrected: true,
+          correctedName: best.entry.name,
+          suggestions: suggestions.slice(1).map(candidate => candidate.entry.name)
+        };
+      }
+      return {
+        entry: null,
+        autoCorrected: false,
+        correctedName: '',
+        suggestions: suggestions.map(candidate => candidate.entry.name)
+      };
     };
     const countWorldleWrongGuesses = (session) => (
       Array.isArray(session?.guesses) ? session.guesses.filter(guess => guess && guess.correct === false && guess.duplicate !== true).length : 0
@@ -3712,6 +4206,12 @@
         { action: 'Role Filter', description: 'Filter by All, Killer, Survivor, or Universal offerings.' },
         { action: 'Search & Sort', description: 'Search by name/description. Sort by rarity or alphabetically.' },
       ],
+      cosmetics: [
+        { action: 'Character Swaps', description: 'Browse Legendary, Costume, and Ultra Rare character swaps grouped by rarity.' },
+        { action: 'Full Sets', description: 'Switch to Full Sets to browse approved outfit icons grouped by collection.' },
+        { action: 'Search & Filter', description: 'Search by cosmetic name, collection, or base character, and filter by role.' },
+        { action: 'Open Profile', description: 'Open any cosmetic card to jump to the base character profile and focus that cosmetic.' },
+      ],
       prestige: [
         { action: 'Input Levels', description: 'Enter your current prestige/level and target prestige to calculate the bloodpoints needed.' },
         { action: 'Bloodweb Mode', description: 'Choose Efficient (~850k), Average (~1.05M), or Completionist (~1.5M) to adjust the calculation.' },
@@ -3729,10 +4229,11 @@
         { action: 'View', description: 'Tap "View" on a character to navigate to their full list.' },
       ],
       settings: [
-        { action: 'Appearance', description: 'Choose Dark, OLED Black, or Light theme. Pick a manual accent theme and toggle high contrast.' },
+        { action: 'Appearance', description: 'Choose Dark, OLED Black, or Light theme. Pick a manual accent theme or one of the full-palette themes.' },
         { action: 'Font Size', description: 'Set Small, Default, or Large text size.' },
         { action: 'Nav Bar', description: 'Toggle which views appear in the bottom navigation bar (max 6). Tap Reset to restore defaults.' },
         { action: 'Home Tiles', description: 'Show/hide and reorder home screen tiles using the arrow buttons. Tap Reset to restore defaults.' },
+        { action: 'Data Backup', description: 'Export the full local app state to JSON or restore it later from a file or pasted backup text.' },
       ],
     };
     const Header = ({ title, subtitle, onBack, onScrollTop, infoTips }) => (
@@ -4394,7 +4895,7 @@
         </div>
       );
     };
-    const HomeView = ({ setView, data, theme, builds = [], maps = [], challenges = [], setBuildSeed, perks = [], setBuilds, customHomeTiles = [], items = [], addons = [], offerings = [] }) => {
+    const HomeView = ({ setView, data, theme, builds = [], maps = [], challenges = [], setBuildSeed, perks = [], setBuilds, customHomeTiles = [], items = [], addons = [], offerings = [], cosmeticsCatalog = { characterSwaps: [], fullSets: [] }, allCharacters = [], onOpenCharacterProfile }) => {
       const { killers = [], survivors = [] } = data || {};
       const [searchTerm, setSearchTerm] = useState('');
       const [results, setResults] = useState([]);
@@ -4404,6 +4905,13 @@
       const [importError, setImportError] = useState('');
       const [importPreview, setImportPreview] = useState(null);
       const [importWarnings, setImportWarnings] = useState([]);
+      const allCharactersById = useMemo(() => {
+        const map = {};
+        (allCharacters || []).forEach((character) => {
+          if (character?.id) map[character.id] = character;
+        });
+        return map;
+      }, [allCharacters]);
       const { containerRef: pullRef, pullDistance, isRefreshing, pullHandlers } = usePullToRefresh(() => {
         return new Promise(resolve => setTimeout(resolve, 300));
       });;
@@ -4542,6 +5050,21 @@
         setRandomResult(null);
       };
 
+      const searchableCosmetics = useMemo(() => {
+        const characterSwaps = Array.isArray(cosmeticsCatalog.characterSwaps) ? cosmeticsCatalog.characterSwaps.filter((entry) => entry.status === 'ready') : [];
+        const fullSets = Array.isArray(cosmeticsCatalog.fullSets) ? cosmeticsCatalog.fullSets.filter((entry) => entry.status === 'ready') : [];
+        return [...characterSwaps, ...fullSets];
+      }, [cosmeticsCatalog]);
+      const openCosmeticProfile = (cosmetic) => {
+        if (!cosmetic || !onOpenCharacterProfile) return;
+        const baseCharacter = allCharactersById[cosmetic.baseCharacterId];
+        if (!baseCharacter) return;
+        onOpenCharacterProfile({
+          ...baseCharacter,
+          cosmeticFocusId: cosmetic.id
+        });
+      };
+
       const handleImportBuild = () => {
         if (!importCode.trim()) {
           setImportError('Please paste a build code');
@@ -4614,7 +5137,8 @@
         'glossary': 'Glossary',
         'icon': 'GameIcon', 'icons': 'GameIcon', 'status': 'GameIcon',
         'challenge': 'Challenge', 'challenges': 'Challenge',
-        'chapter': 'Chapter'
+        'chapter': 'Chapter',
+        'legendary': 'Cosmetic', 'cosmetic': 'Cosmetic', 'cosmetics': 'Cosmetic'
       };
 
       // Item type aliases
@@ -4881,7 +5405,7 @@
         }
 
         const parseSearch = (input) => {
-          const prefixes = ['killers:', 'survivors:', 'perks:', 'builds:', 'maps:', 'items:', 'addons:', 'offerings:', 'glossary:', 'icons:', 'challenges:', 'chapter:'];
+          const prefixes = ['killers:', 'survivors:', 'perks:', 'builds:', 'maps:', 'items:', 'addons:', 'offerings:', 'glossary:', 'icons:', 'challenges:', 'chapter:', 'legendary:', 'cosmetics:'];
           const lowerInput = input.toLowerCase();
           for (const prefix of prefixes) {
             if (lowerInput.startsWith(prefix)) {
@@ -4949,6 +5473,15 @@
             displayDate: release.displayDate
           }));
         }
+        if (shouldSearch('legendary') || shouldSearch('cosmetics')) {
+          searchableCosmetics.forEach((cosmetic) => allItems.push({
+            ...cosmetic,
+            _category: 'Cosmetic',
+            description: cosmetic.groupKey === 'fullSet'
+              ? `${cosmetic.collectionName || cosmetic.rarity || 'Full Set'} cosmetic for ${cosmetic.baseCharacterName}`
+              : `${cosmetic.groupLabel} character-swap cosmetic for ${cosmetic.baseCharacterName}`
+          }));
+        }
 
         // ── Smart score every item ──
         const { tokens, context } = parseSmartQuery(filter ? term : searchTerm);
@@ -4963,7 +5496,7 @@
         scored.sort((a, b) => b._score - a._score || (a.name || '').localeCompare(b.name || ''));
 
         setResults(scored.slice(0, 50));
-      }, [searchTerm, data, builds, maps, challenges, items, addons, offerings]);
+      }, [searchTerm, data, builds, maps, challenges, items, addons, offerings, searchableCosmetics]);
       return (
         <div ref={pullRef} {...pullHandlers} className="relative flex flex-col h-full px-6 pt-10 pb-32 overflow-y-auto custom-scrollbar">
           <PullIndicator pullDistance={pullDistance} threshold={80} isRefreshing={isRefreshing} />
@@ -5151,6 +5684,30 @@
                   if (['Killer', 'Survivor', 'Perk'].includes(item.category)) {
                     return wrapBest(<GlassCard key={item.id || Math.random()} item={item} category={item.category} />);
                   }
+                  if (item.category === 'Cosmetic') {
+                    return wrapBest(
+                      <div key={item.id || item.name} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex-shrink-0 overflow-hidden">
+                          <AssetFrame type={item.baseCharacterType} size="fill" imageUrl={item.image} fallbackIcon={<Icons.User width={18} height={18} className="text-white/40" />} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm">{item.name}</p>
+                          <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{item.groupKey === 'fullSet' ? 'Full Set Cosmetic' : item.groupLabel}</p>
+                          <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                            {item.groupKey === 'fullSet'
+                              ? `${item.collectionName || item.rarity || 'Full Set'} cosmetic for ${item.baseCharacterName}`
+                              : `Character-swap cosmetic for ${item.baseCharacterName}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => openCosmeticProfile(item)}
+                          className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white"
+                        >
+                          Open
+                        </button>
+                      </div>
+                    );
+                  }
                   if (item.category === 'Build') {
                     return wrapBest(
                       <div key={item.id || item.name} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10">
@@ -5197,13 +5754,13 @@
                           <p className="text-white font-bold text-sm">{item.name}</p>
                           <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Item • {item.itemType || 'Unknown'}</p>
                         </div>
-                        <button onClick={() => setView('items', { search: item.name })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
+                        <button onClick={() => setView('items', { search: item.name, mode: 'survivor', targetId: item.id, targetType: 'item' })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
                       </div>
                     );
                   }
                   if (item.category === 'Addon') {
                     const isKillerAddon = item.role === 'killer';
-                    const searchQuery = isKillerAddon ? (item.killerName || '') : (item.itemType || '');
+                    const searchQuery = item.name || (isKillerAddon ? (item.killerName || '') : (item.itemType || ''));
                     const addonMode = isKillerAddon ? 'killer' : 'survivor';
                     return wrapBest(
                       <div key={item.id || item.name} className="p-3 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-center gap-3">
@@ -5216,7 +5773,7 @@
                             {isKillerAddon ? 'Killer' : 'Survivor'} Addon{item.killerName ? ` • ${item.killerName}` : item.itemType ? ` • ${item.itemType}` : ''}
                           </p>
                         </div>
-                        <button onClick={() => setView('items', { search: searchQuery, mode: addonMode })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
+                        <button onClick={() => setView('items', { search: searchQuery, mode: addonMode, targetId: item.id, targetType: 'addon' })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
                       </div>
                     );
                   }
@@ -5230,7 +5787,7 @@
                           <p className="text-white font-bold text-sm">{item.name}</p>
                           <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Offering{item.type ? ` • ${item.type}` : ''}</p>
                         </div>
-                        <button onClick={() => setView('offerings', { search: item.name })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
+                        <button onClick={() => setView('offerings', { search: item.name, targetId: item.id, targetType: 'offering' })} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-white">Open</button>
                       </div>
                     );
                   }
@@ -5736,7 +6293,12 @@
       const characters = form.role === 'Killer' ? killers : survivors;
       const perkPool = useMemo(() => {
         const term = perkSearch.toLowerCase();
-        return (perks || []).filter(p => p.type === form.role && (!term || p.name.toLowerCase().includes(term) || (p.owner || '').toLowerCase().includes(term)));
+        return (perks || [])
+          .filter(p => p.type === form.role && (!term || p.name.toLowerCase().includes(term) || (p.owner || '').toLowerCase().includes(term)))
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) ||
+            (a.owner || '').localeCompare(b.owner || '', undefined, { sensitivity: 'base' })
+          );
       }, [perks, form.role, perkSearch]);
       const survivorItems = useMemo(() => {
         return (items || []).filter(i => i.bloodweb === true && i.role === 'survivor').sort((a, b) => getRarityOrder(b.rarity) - getRarityOrder(a.rarity));
@@ -7590,7 +8152,10 @@
       const [mode, setMode] = useState('classic');
       const [queueType, setQueueType] = useState('daily');
       const [guessInput, setGuessInput] = useState('');
+      const guessInputRef = useRef(null);
       const [inputError, setInputError] = useState('');
+      const [inputNotice, setInputNotice] = useState('');
+      const [inputSuggestions, setInputSuggestions] = useState([]);
       const todayKey = getWorldleDateKey();
       const killerCatalog = useMemo(() => buildWorldleKillerCatalog(killers).sort((a, b) => a.name.localeCompare(b.name)), [killers]);
       const emojiVariantCatalog = useMemo(() => buildWorldleEmojiVariantCatalog(killerCatalog), [killerCatalog]);
@@ -7648,17 +8213,12 @@
       const isFinished = session?.solved || session?.failed;
       const statsBucket = worldleState?.stats?.[mode]?.[activeQueue] || createWorldleStatsBucket();
       const historyRows = worldleState?.history?.[mode]?.[activeQueue] || [];
-      const suggestionOptions = useMemo(() => {
-        if (mode === 'classic' || mode === 'emoji') return killerCatalog.map(entry => entry.name);
-        if (mode === 'survivorPerk') return survivorPerkCatalog.map(entry => entry.name);
-        if (mode === 'killerPerk') return killerPerkCatalog.map(entry => entry.name);
-        if (mode === 'teachables') return killerPerkCatalog.filter(entry => !solvedIds.includes(entry.id)).map(entry => entry.name);
-        return [];
-      }, [mode, killerCatalog, survivorPerkCatalog, killerPerkCatalog, solvedIds]);
       useEffect(() => {
         setGuessInput('');
         setInputError('');
-      }, [mode, practiceEnabled]);
+        setInputNotice('');
+        setInputSuggestions([]);
+      }, [mode, activeQueue]);
 
       const persistSession = (next, nextSession) => {
         if (activeQueue === 'daily') {
@@ -7679,28 +8239,47 @@
       const setDuplicateError = (label) => {
         setInputError(`${label} was already tried.`);
       };
-      const handleGuessSubmit = () => {
-        const rawGuess = guessInput.trim();
-        if (!rawGuess || !target) return;
-        let unknown = false;
-        let duplicate = false;
-        setWorldleState((prev) => {
-          const ensured = hydrateSession(prev);
-          let next = ensured.state;
-          let activeSession = activeQueue === 'daily' ? next.daily[mode] : next.practice[mode];
-          if (!activeSession || activeSession.solved || activeSession.failed) return prev;
-          const now = new Date().toISOString();
-          if (mode === 'teachables') {
-            const guess = resolveWorldleGuess(killerPerkCatalog, rawGuess);
-            if (!guess) {
-              unknown = true;
-              return prev;
-            }
-            const alreadyTried = (activeSession.guesses || []).some(entry => entry.id === guess.id) || (activeSession.solvedIds || []).includes(guess.id);
-            if (alreadyTried) {
-              duplicate = true;
-              return prev;
-            }
+      const clearInputFeedback = () => {
+        setInputError('');
+        setInputNotice('');
+        setInputSuggestions([]);
+      };
+      const normalizeGuessFeedbackInput = (value = '') => String(value || '').trim().toLowerCase();
+      const getActiveGuessInput = () => {
+        const liveValue = guessInputRef.current && typeof guessInputRef.current.value === 'string'
+          ? guessInputRef.current.value
+          : guessInput;
+        return String(liveValue || '');
+      };
+      const handleGuessSubmit = (overrideGuess = null) => {
+        const rawGuess = String(overrideGuess ?? getActiveGuessInput()).trim();
+        if (!rawGuess || !target || !session || session.solved || session.failed) return;
+        const entityLabel = getWorldleGuessEntityLabel(mode);
+        if (mode === 'teachables') {
+          const attempt = resolveWorldleGuessAttempt(killerPerkCatalog, rawGuess);
+          if (!attempt.entry) {
+            setInputNotice('');
+            setInputSuggestions(attempt.suggestions);
+            setInputError(attempt.suggestions.length
+              ? `Unknown ${entityLabel}. Try one of the matches below or edit the name.`
+              : `Unknown ${entityLabel}. Check the spelling and try again.`);
+            return;
+          }
+          const guess = attempt.entry;
+          const correctedName = attempt.autoCorrected ? attempt.correctedName : '';
+          const alreadyTried = (session.guesses || []).some(entry => entry.id === guess.id) || (session.solvedIds || []).includes(guess.id);
+          if (alreadyTried) {
+            setInputNotice('');
+            setInputSuggestions([]);
+            setDuplicateError(correctedName || rawGuess);
+            return;
+          }
+          setWorldleState((prev) => {
+            const ensured = hydrateSession(prev);
+            let next = ensured.state;
+            let activeSession = activeQueue === 'daily' ? next.daily[mode] : next.practice[mode];
+            if (!activeSession || activeSession.solved || activeSession.failed) return prev;
+            const now = new Date().toISOString();
             const correct = target.teachables.some(perk => perk.id === guess.id);
             const nextGuesses = [...(activeSession.guesses || []), { id: guess.id, label: guess.name, correct }];
             const nextSolvedIds = correct ? [...(activeSession.solvedIds || []), guess.id] : (activeSession.solvedIds || []);
@@ -7721,17 +8300,38 @@
               });
             }
             return next;
-          }
-          const guess = resolveWorldleGuess(activeCatalog, rawGuess);
-          if (!guess) {
-            unknown = true;
-            return prev;
-          }
-          const alreadyTried = (activeSession.guesses || []).some(entry => entry.id === guess.id);
-          if (alreadyTried) {
-            duplicate = true;
-            return prev;
-          }
+          });
+          setGuessInput('');
+          setInputError('');
+          setInputSuggestions([]);
+          setInputNotice(correctedName ? `Using ${correctedName}.` : '');
+          return;
+        }
+
+        const attempt = resolveWorldleGuessAttempt(activeCatalog, rawGuess);
+        if (!attempt.entry) {
+          setInputNotice('');
+          setInputSuggestions(attempt.suggestions);
+          setInputError(attempt.suggestions.length
+            ? `Unknown ${entityLabel}. Try one of the matches below or edit the name.`
+            : `Unknown ${entityLabel}. Check the spelling and try again.`);
+          return;
+        }
+        const guess = attempt.entry;
+        const correctedName = attempt.autoCorrected ? attempt.correctedName : '';
+        const alreadyTried = (session.guesses || []).some(entry => entry.id === guess.id);
+        if (alreadyTried) {
+          setInputNotice('');
+          setInputSuggestions([]);
+          setDuplicateError(correctedName || rawGuess);
+          return;
+        }
+        setWorldleState((prev) => {
+          const ensured = hydrateSession(prev);
+          let next = ensured.state;
+          let activeSession = activeQueue === 'daily' ? next.daily[mode] : next.practice[mode];
+          if (!activeSession || activeSession.solved || activeSession.failed) return prev;
+          const now = new Date().toISOString();
           const correct = guess.id === target.id;
           const nextGuesses = [...(activeSession.guesses || []), { id: guess.id, label: guess.name, correct }];
           activeSession = {
@@ -7752,16 +8352,10 @@
           }
           return next;
         });
-        if (unknown) {
-          setInputError("That guess is not in this mode's answer pool.");
-          return;
-        }
-        if (duplicate) {
-          setDuplicateError(rawGuess);
-          return;
-        }
         setGuessInput('');
         setInputError('');
+        setInputSuggestions([]);
+        setInputNotice(correctedName ? `Using ${correctedName}.` : '');
       };
       const handleGiveUp = () => {
         if (!target || isFinished) return;
@@ -7783,13 +8377,13 @@
             result: buildWorldleResultEntry({ mode, queue: activeQueue, target, guessCount: guessCount || 0, solved: false, dateKey: activeQueue === 'daily' ? activeSession.dateKey : todayKey, session: activeSession, emojiVariant: activeEmojiVariant })
           });
         });
-        setInputError('');
+        clearInputFeedback();
       };
       const advancePractice = () => {
         if (activeQueue !== 'practice') return;
         setWorldleState(prev => advancePracticeWorldleSession({ mode, state: prev, catalog: activeCatalog, dateKey: todayKey, options: { emojiVariants: emojiVariantCatalog, emojiVariantsById } }));
         setGuessInput('');
-        setInputError('');
+        clearInputFeedback();
       };
       const getPerkRevealStyle = () => {
         const stage = Math.min(3, wrongGuesses);
@@ -7890,6 +8484,7 @@
             <div className={`flex flex-wrap gap-2 ${isPhoneLayout ? '' : 'mb-4'}`}>
               {WORLDLE_MODES.map((modeId) => (
                 <button
+                  type="button"
                   key={modeId}
                   onClick={() => setMode(modeId)}
                   className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-[0.22em] border transition-all ${mode === modeId ? 'text-white border-white/40 bg-white/10' : 'text-zinc-400 border-white/10 bg-black/20 hover:text-white'}`}
@@ -7902,6 +8497,7 @@
               <div className={`flex flex-wrap gap-2 ${isPhoneLayout ? '' : 'mb-4'}`}>
                 {['daily', 'practice'].map((entry) => (
                   <button
+                    type="button"
                     key={entry}
                     onClick={() => setQueueType(entry)}
                     className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-[0.22em] border ${activeQueue === entry ? 'border-cyan-400/40 text-cyan-200 bg-cyan-500/10' : 'border-white/10 text-zinc-500 bg-black/20'}`}
@@ -8050,27 +8646,61 @@
                   <div className="flex flex-col md:flex-row gap-3">
                     <div className="flex-1">
                       <input
-                        list={`worldle-${mode}-${activeQueue}`}
+                        ref={guessInputRef}
                         value={guessInput}
-                        onChange={e => { setGuessInput(e.target.value); setInputError(''); }}
-                        onKeyDown={e => { if (e.key === 'Enter') handleGuessSubmit(); }}
+                        onChange={e => {
+                          const nextValue = e.target.value;
+                          const shouldClear = normalizeGuessFeedbackInput(nextValue) !== normalizeGuessFeedbackInput(guessInput);
+                          setGuessInput(nextValue);
+                          if (shouldClear) {
+                            clearInputFeedback();
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleGuessSubmit();
+                          }
+                        }}
                         disabled={isFinished}
                         placeholder={mode === 'teachables' ? 'Guess a killer perk...' : mode.includes('Perk') ? 'Guess the perk...' : 'Guess the killer...'}
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        enterKeyHint="go"
                         className="w-full bg-zinc-800/60 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-500"
                       />
-                      <datalist id={`worldle-${mode}-${activeQueue}`}>
-                        {suggestionOptions.map(option => <option key={option} value={option} />)}
-                      </datalist>
                       {inputError && <p className="text-xs text-amber-300 mt-2">{inputError}</p>}
+                      {inputNotice && <p className="text-xs text-cyan-300 mt-2">{inputNotice}</p>}
+                      {inputSuggestions.length > 0 && !isFinished && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {inputSuggestions.map((option) => (
+                            <button
+                              type="button"
+                              key={option}
+                              onClick={() => handleGuessSubmit(option)}
+                              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-200 text-xs font-semibold hover:bg-white/10"
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={handleGuessSubmit} disabled={!guessInput.trim() || isFinished} className="px-5 py-3 rounded-2xl bg-gradient-to-r from-red-700 to-red-500 text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                    <button
+                      type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => handleGuessSubmit()}
+                      disabled={!guessInput.trim() || isFinished}
+                      className="px-5 py-3 rounded-2xl bg-gradient-to-r from-red-700 to-red-500 text-white font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
                       Submit
                     </button>
-                    <button onClick={handleGiveUp} disabled={isFinished} className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-200 font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                    <button type="button" onClick={handleGiveUp} disabled={isFinished} className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-200 font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                       {activeQueue === 'daily' ? 'Reveal' : 'Skip'}
                     </button>
                     {activeQueue === 'practice' && isFinished && (
-                      <button onClick={advancePractice} className="px-5 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-400/20 text-cyan-200 font-bold text-sm">
+                      <button type="button" onClick={advancePractice} className="px-5 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-400/20 text-cyan-200 font-bold text-sm">
                         Next Puzzle
                       </button>
                     )}
@@ -9501,12 +10131,15 @@
         </div>
       );
     };
-    const ItemsView = ({ onBack, items = [], addons = [], killers = [], settings = {}, initialSearch = '', initialMode = 'survivor', favoriteItems = [], favoriteAddons = [], onToggleFavoriteItem, onToggleFavoriteAddon }) => {
+    const ItemsView = ({ onBack, items = [], addons = [], killers = [], settings = {}, initialSearch = '', initialMode = 'survivor', initialTargetId = '', initialTargetType = '', favoriteItems = [], favoriteAddons = [], onToggleFavoriteItem, onToggleFavoriteAddon }) => {
       const [search, setSearch] = useState(initialSearch);
       const [expandedId, setExpandedId] = useState(null);
       const [mode, setMode] = useState(initialMode);
       const [filterType, setFilterType] = useState('All');
       const [sortBy, setSortBy] = useState('rarity');
+      const itemCardRefs = useRef({});
+      const killerCardRefs = useRef({});
+      const addonRefs = useRef({});
       const RARITY_ORDER = { common: 1, uncommon: 2, rare: 3, veryrare: 4, ultrarare: 5, visceral: 6 };
       const getRarityOrder = (r) => RARITY_ORDER[(r || '').toLowerCase()] || 0;
       const getRarityColor = (rarity) => {
@@ -9543,6 +10176,8 @@
       const killerAddons = useMemo(() => {
         return (addons || []).filter(a => a.role === 'killer');
       }, [addons]);
+      const targetItem = useMemo(() => (initialTargetType === 'item' ? bloodwebItems.find(item => item.id === initialTargetId) || null : null), [initialTargetType, initialTargetId, bloodwebItems]);
+      const targetAddon = useMemo(() => (initialTargetType === 'addon' ? (addons || []).find(addon => addon.id === initialTargetId) || null : null), [initialTargetType, initialTargetId, addons]);
       const filteredItems = useMemo(() => {
         const term = search.toLowerCase();
         let result = bloodwebItems.filter(item => {
@@ -9576,6 +10211,57 @@
           .filter(a => a.killerName === killer.name)
           .sort((a, b) => getRarityOrder(b.rarity) - getRarityOrder(a.rarity));
       };
+      const targetSurvivorAddonHostItem = useMemo(() => {
+        if (!targetAddon || targetAddon.role !== 'survivor') return null;
+        return filteredItems.find(item => item.itemType === targetAddon.itemType)
+          || bloodwebItems.find(item => item.itemType === targetAddon.itemType)
+          || null;
+      }, [targetAddon, filteredItems, bloodwebItems]);
+      const targetKillerAddonHost = useMemo(() => {
+        if (!targetAddon || targetAddon.role !== 'killer') return null;
+        return (killers || []).find(killer => killer.name === targetAddon.killerName) || null;
+      }, [targetAddon, killers]);
+      useEffect(() => {
+        setSearch(initialSearch || '');
+      }, [initialSearch]);
+      useEffect(() => {
+        setMode(initialMode || 'survivor');
+      }, [initialMode]);
+      useEffect(() => {
+        if (initialTargetType === 'item' && targetItem) {
+          setMode('survivor');
+          setExpandedId(targetItem.id);
+          return;
+        }
+        if (initialTargetType === 'addon' && targetAddon) {
+          if (targetAddon.role === 'killer' && targetKillerAddonHost) {
+            setMode('killer');
+            setExpandedId(targetKillerAddonHost.id);
+            return;
+          }
+          if (targetAddon.role === 'survivor' && targetSurvivorAddonHostItem) {
+            setMode('survivor');
+            setExpandedId(targetSurvivorAddonHostItem.id);
+          }
+        }
+      }, [initialTargetType, targetItem, targetAddon, targetKillerAddonHost, targetSurvivorAddonHostItem]);
+      useEffect(() => {
+        let node = null;
+        if (initialTargetType === 'item' && targetItem && mode === 'survivor' && expandedId === targetItem.id) {
+          node = itemCardRefs.current[targetItem.id] || null;
+        } else if (initialTargetType === 'addon' && targetAddon) {
+          if (targetAddon.role === 'killer' && mode === 'killer' && targetKillerAddonHost && expandedId === targetKillerAddonHost.id) {
+            node = addonRefs.current[targetAddon.id] || killerCardRefs.current[targetKillerAddonHost.id] || null;
+          } else if (targetAddon.role === 'survivor' && mode === 'survivor' && targetSurvivorAddonHostItem && expandedId === targetSurvivorAddonHostItem.id) {
+            node = addonRefs.current[targetAddon.id] || itemCardRefs.current[targetSurvivorAddonHostItem.id] || null;
+          }
+        }
+        if (!node) return undefined;
+        const raf = window.requestAnimationFrame(() => {
+          node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        return () => window.cancelAnimationFrame(raf);
+      }, [initialTargetType, targetItem, targetAddon, targetKillerAddonHost, targetSurvivorAddonHostItem, mode, expandedId, filteredItems, filteredKillers]);
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
           <Header title="Items & Addons" subtitle={mode === 'survivor' ? bloodwebItems.length + ' items' : killers.length + ' killers'} onBack={onBack} infoTips={VIEW_TIPS.items} />
@@ -9619,7 +10305,16 @@
                   const isExpanded = expandedId === item.id;
                   const itemAddons = getAddonsForItemType(item.itemType);
                   return (
-                    <div key={item.id} className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.id)}>
+                    <div
+                      key={item.id}
+                      data-smoke-target={initialTargetType === 'item' && initialTargetId === item.id ? 'true' : undefined}
+                      ref={(node) => {
+                        if (node) itemCardRefs.current[item.id] = node;
+                        else delete itemCardRefs.current[item.id];
+                      }}
+                      className={`p-4 rounded-3xl bg-zinc-900/40 border backdrop-blur-md cursor-pointer ${initialTargetType === 'item' && initialTargetId === item.id ? 'border-cyan-400/35 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]' : 'border-white/5'}`}
+                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                    >
                       <div className="flex items-center gap-4 mb-2">
                         <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           <AssetFrame type="Item" imageUrl={item.image} fallbackIcon={<Icons.Package width={24} height={24} className="text-white/40" />} />
@@ -9643,7 +10338,16 @@
                           <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Compatible Addons ({itemAddons.length})</p>
                           <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar px-1 pt-1 pb-2">
                             {itemAddons.map(addon => (
-                              <div key={addon.id} className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-start gap-3" style={{ boxShadow: getRarityGlow(addon.rarity, settings.rarityGlows !== false) }}>
+                              <div
+                                key={addon.id}
+                                data-smoke-target={initialTargetType === 'addon' && initialTargetId === addon.id ? 'true' : undefined}
+                                ref={(node) => {
+                                  if (node) addonRefs.current[addon.id] = node;
+                                  else delete addonRefs.current[addon.id];
+                                }}
+                                className={`p-2 rounded-xl border flex items-start gap-3 ${initialTargetType === 'addon' && initialTargetId === addon.id ? 'bg-cyan-500/10 border-cyan-400/25' : 'bg-white/5 border-white/5'}`}
+                                style={{ boxShadow: getRarityGlow(addon.rarity, settings.rarityGlows !== false) }}
+                              >
                                 <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex-shrink-0 overflow-hidden">
                                   <AssetFrame type="Addon" size="fill" imageUrl={addon.image} fallbackIcon={<Icons.Wrench width={16} height={16} className="text-white/40" />} />
                                 </div>
@@ -9681,7 +10385,16 @@
                   const isExpanded = expandedId === killer.id;
                   const powerAddons = getAddonsForKiller(killer);
                   return (
-                    <div key={killer.id} className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : killer.id)}>
+                    <div
+                      key={killer.id}
+                      data-smoke-target={initialTargetType === 'addon' && targetAddon?.role === 'killer' && targetKillerAddonHost?.id === killer.id ? 'true' : undefined}
+                      ref={(node) => {
+                        if (node) killerCardRefs.current[killer.id] = node;
+                        else delete killerCardRefs.current[killer.id];
+                      }}
+                      className={`p-4 rounded-3xl bg-zinc-900/40 border backdrop-blur-md cursor-pointer ${initialTargetType === 'addon' && targetAddon?.role === 'killer' && targetKillerAddonHost?.id === killer.id ? 'border-cyan-400/35 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]' : 'border-white/5'}`}
+                      onClick={() => setExpandedId(isExpanded ? null : killer.id)}
+                    >
                       <div className="flex items-center gap-4">
                         <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           <AssetFrame
@@ -9704,7 +10417,16 @@
                           <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Power Addons</p>
                           <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar px-1 pt-1 pb-2">
                             {powerAddons.map(addon => (
-                              <div key={addon.id} className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-start gap-3" style={{ boxShadow: getRarityGlow(addon.rarity, settings.rarityGlows !== false) }}>
+                              <div
+                                key={addon.id}
+                                data-smoke-target={initialTargetType === 'addon' && initialTargetId === addon.id ? 'true' : undefined}
+                                ref={(node) => {
+                                  if (node) addonRefs.current[addon.id] = node;
+                                  else delete addonRefs.current[addon.id];
+                                }}
+                                className={`p-2 rounded-xl border flex items-start gap-3 ${initialTargetType === 'addon' && initialTargetId === addon.id ? 'bg-cyan-500/10 border-cyan-400/25' : 'bg-white/5 border-white/5'}`}
+                                style={{ boxShadow: getRarityGlow(addon.rarity, settings.rarityGlows !== false) }}
+                              >
                                 <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex-shrink-0 overflow-hidden">
                                   <AssetFrame type="Addon" size="fill" imageUrl={addon.image} fallbackIcon={<Icons.Wrench width={16} height={16} className="text-white/40" />} />
                                 </div>
@@ -9740,12 +10462,13 @@
         </div>
       );
     };
-    const OfferingsView = ({ onBack, offerings = [], initialSearch = '', favoriteOfferings = [], onToggleFavoriteOffering }) => {
+    const OfferingsView = ({ onBack, offerings = [], initialSearch = '', initialTargetId = '', favoriteOfferings = [], onToggleFavoriteOffering }) => {
       const [search, setSearch] = useState(initialSearch);
       const [filterRole, setFilterRole] = useState('All');
       const [filterSecret, setFilterSecret] = useState(false);
       const [sortBy, setSortBy] = useState('rarity');
       const [expandedId, setExpandedId] = useState(null);
+      const offeringRefs = useRef({});
       const RARITY_ORDER = { common: 1, uncommon: 2, rare: 3, veryrare: 4, ultrarare: 5, visceral: 6, event: 7 };
       const getRarityOrder = (r) => RARITY_ORDER[(r || '').toLowerCase()] || 0;
       const getRarityColor = (rarity) => {
@@ -9779,6 +10502,7 @@
       const active = useMemo(() => {
         return (offerings || []).filter(o => !o.retired);
       }, [offerings]);
+      const targetOffering = useMemo(() => active.find(offering => offering.id === initialTargetId) || null, [active, initialTargetId]);
       const filtered = useMemo(() => {
         const term = search.toLowerCase();
         let result = active.filter(o => {
@@ -9795,6 +10519,22 @@
         }
         return result;
       }, [active, search, filterRole, sortBy]);
+      useEffect(() => {
+        setSearch(initialSearch || '');
+      }, [initialSearch]);
+      useEffect(() => {
+        if (!targetOffering) return;
+        setExpandedId(targetOffering.id);
+      }, [targetOffering]);
+      useEffect(() => {
+        if (!targetOffering || expandedId !== targetOffering.id || !filtered.some(offering => offering.id === targetOffering.id)) return undefined;
+        const node = offeringRefs.current[targetOffering.id];
+        if (!node) return undefined;
+        const raf = window.requestAnimationFrame(() => {
+          node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        return () => window.cancelAnimationFrame(raf);
+      }, [targetOffering, expandedId, filtered]);
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
           <Header title="Offerings" subtitle={active.length + " offerings"} onBack={onBack} infoTips={VIEW_TIPS.offerings} />
@@ -9827,7 +10567,16 @@
             {filtered.map(offering => {
               const isExpanded = expandedId === offering.id;
               return (
-                <div key={offering.id} className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : offering.id)}>
+                <div
+                  key={offering.id}
+                  data-smoke-target={initialTargetId === offering.id ? 'true' : undefined}
+                  ref={(node) => {
+                    if (node) offeringRefs.current[offering.id] = node;
+                    else delete offeringRefs.current[offering.id];
+                  }}
+                  className={`p-4 rounded-3xl bg-zinc-900/40 border backdrop-blur-md cursor-pointer ${initialTargetId === offering.id ? 'border-cyan-400/35 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]' : 'border-white/5'}`}
+                  onClick={() => setExpandedId(isExpanded ? null : offering.id)}
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                       <AssetFrame type="Offering" imageUrl={offering.image} fallbackIcon={<Icons.Flame width={24} height={24} className="text-white/40" />} />
@@ -9853,6 +10602,259 @@
                 </div>
               );
             })}
+          </div>
+        </div>
+      );
+    };
+    const compareUiText = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base' });
+    const CosmeticCard = ({ entry, accentColor = 'var(--accent)', focused = false, onOpen }) => {
+      if (!entry) return null;
+      const isCharacterSwap = entry.groupKey !== 'fullSet';
+      const collectionLabel = entry.collectionName || entry.rarity || (isCharacterSwap ? 'Character Swap' : 'Approved Full Set');
+      const roleChipClasses = entry.baseCharacterType === 'Killer'
+        ? 'bg-red-500/10 text-red-200 border-red-500/20'
+        : 'bg-sky-500/10 text-sky-200 border-sky-500/20';
+      const badgeStyle = {
+        borderColor: `${accentColor}30`,
+        color: focused ? accentColor : '#d4d4d8',
+        backgroundColor: focused ? `${accentColor}16` : 'rgba(255,255,255,0.04)'
+      };
+      return (
+        <div
+          data-smoke-target={focused ? 'true' : undefined}
+          className="rounded-[1.35rem] border overflow-hidden transition-all"
+          style={focused ? { borderColor: `${accentColor}aa`, boxShadow: `0 0 0 1px ${accentColor}25, 0 18px 40px rgba(0,0,0,0.28)` } : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.18)' }}
+        >
+          <div className={`${isCharacterSwap ? 'aspect-[3/4]' : 'aspect-square'} bg-black/30`}>
+            <AssetFrame
+              type={isCharacterSwap ? entry.baseCharacterType : 'Image'}
+              size="fill"
+              imageUrl={entry.image}
+              fallbackIcon={
+                isCharacterSwap
+                  ? <Icons.User width={24} height={24} className="text-zinc-500" />
+                  : <Icons.Image width={24} height={24} className="text-zinc-500" />
+              }
+            />
+          </div>
+          <div className="p-3.5 space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={badgeStyle}>
+                {entry.groupLabel}
+              </span>
+              <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${roleChipClasses}`}>
+                {entry.baseCharacterType}
+              </span>
+            </div>
+            <div>
+              <p className="text-white text-sm font-bold leading-tight">{entry.name}</p>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500 mt-1">{entry.baseCharacterName}</p>
+              <p className="text-xs text-zinc-400 mt-2 leading-snug">{collectionLabel}</p>
+            </div>
+            {focused && (
+              <p className="text-[10px] uppercase tracking-[0.18em] font-bold" style={{ color: accentColor }}>
+                Search Match
+              </p>
+            )}
+            {typeof onOpen === 'function' && (
+              <button
+                onClick={() => onOpen(entry)}
+                className="w-full py-2.5 rounded-xl bg-white/5 border border-white/10 text-[11px] text-white uppercase tracking-[0.18em] hover:bg-white/10 transition-colors"
+              >
+                Open Base Profile
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    };
+    const CosmeticsView = ({ onBack, cosmeticsCatalog = { characterSwaps: [], fullSets: [] }, onOpenCosmetic, initialTab = 'characterSwaps' }) => {
+      const [activeTab, setActiveTab] = useState(initialTab === 'fullSets' ? 'fullSets' : 'characterSwaps');
+      const [search, setSearch] = useState('');
+      const [roleFilter, setRoleFilter] = useState('All');
+      const [sortMode, setSortMode] = useState('name');
+
+      useEffect(() => {
+        setActiveTab(initialTab === 'fullSets' ? 'fullSets' : 'characterSwaps');
+      }, [initialTab]);
+
+      const readyCharacterSwaps = useMemo(
+        () => (Array.isArray(cosmeticsCatalog.characterSwaps) ? cosmeticsCatalog.characterSwaps.filter((entry) => entry.status === 'ready') : []),
+        [cosmeticsCatalog]
+      );
+      const readyFullSets = useMemo(
+        () => (Array.isArray(cosmeticsCatalog.fullSets) ? cosmeticsCatalog.fullSets.filter((entry) => entry.status === 'ready') : []),
+        [cosmeticsCatalog]
+      );
+      const matchesQuery = (entry, term) => {
+        if (!term) return true;
+        const haystack = [
+          entry.name,
+          entry.baseCharacterName,
+          entry.groupLabel,
+          entry.collectionName,
+          entry.rarity,
+          entry.description,
+          ...(entry.aliases || [])
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(term);
+      };
+      const matchesRole = (entry) => roleFilter === 'All' || entry.baseCharacterType === roleFilter;
+      const sortEntries = useCallback((entries = []) => {
+        return [...entries].sort((left, right) => {
+          if (sortMode === 'base') {
+            return compareUiText(left.baseCharacterName, right.baseCharacterName)
+              || compareUiText(left.name, right.name)
+              || compareUiText(left.collectionName || left.groupLabel, right.collectionName || right.groupLabel);
+          }
+          if (sortMode === 'collection') {
+            return compareUiText(left.collectionName || left.groupLabel || left.rarity, right.collectionName || right.groupLabel || right.rarity)
+              || compareUiText(left.baseCharacterName, right.baseCharacterName)
+              || compareUiText(left.name, right.name);
+          }
+          return compareUiText(left.name, right.name)
+            || compareUiText(left.baseCharacterName, right.baseCharacterName)
+            || compareUiText(left.collectionName || left.groupLabel, right.collectionName || right.groupLabel);
+        });
+      }, [sortMode]);
+
+      const filteredCharacterSwaps = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return sortEntries(readyCharacterSwaps.filter((entry) => matchesRole(entry) && matchesQuery(entry, term)));
+      }, [readyCharacterSwaps, roleFilter, search, sortEntries]);
+      const filteredFullSets = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return sortEntries(readyFullSets.filter((entry) => matchesRole(entry) && matchesQuery(entry, term)));
+      }, [readyFullSets, roleFilter, search, sortEntries]);
+      const groupedCharacterSwaps = useMemo(() => {
+        const order = ['Legendary', 'Costume', 'Ultra Rare'];
+        return order
+          .map((label) => ({
+            label,
+            entries: filteredCharacterSwaps.filter((entry) => entry.groupLabel === label)
+          }))
+          .filter((group) => group.entries.length > 0);
+      }, [filteredCharacterSwaps]);
+      const groupedFullSets = useMemo(() => {
+        const groups = filteredFullSets.reduce((acc, entry) => {
+          const key = entry.collectionName || entry.rarity || 'Other';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(entry);
+          return acc;
+        }, {});
+        return Object.entries(groups)
+          .map(([label, entries]) => ({ label, entries: sortEntries(entries) }))
+          .sort((a, b) => compareUiText(a.label, b.label));
+      }, [filteredFullSets, sortEntries]);
+      const visibleCount = activeTab === 'characterSwaps' ? filteredCharacterSwaps.length : filteredFullSets.length;
+      const statsCards = [
+        { label: 'Ready', value: readyCharacterSwaps.length + readyFullSets.length, hint: 'bundled cosmetics' },
+        { label: 'Character Swaps', value: readyCharacterSwaps.length, hint: 'Legendary / Costume / Ultra Rare' },
+        { label: 'Full Sets', value: readyFullSets.length, hint: 'approved local outfit icons' },
+        { label: 'Showing', value: visibleCount, hint: 'after filters' }
+      ];
+
+      return (
+        <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar" data-smoke-cosmetics="true">
+          <Header title="Legendary Characters" subtitle={`${readyCharacterSwaps.length} character swaps • ${readyFullSets.length} full sets`} onBack={onBack} infoTips={VIEW_TIPS.cosmetics} />
+          <div className="sticky top-0 z-20 -mx-6 px-6 pb-4 pointer-events-none">
+            <div className="relative max-w-5xl mx-auto pointer-events-auto">
+              <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-xl border border-white/10 rounded-3xl p-2 shadow-2xl">
+                <div className="pl-4 text-zinc-400"><Icons.Search width={18} height={18} /></div>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search cosmetics, collections, or characters..."
+                  className="w-full bg-transparent text-white p-3 text-sm font-medium placeholder-zinc-600 focus:outline-none"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="p-2 mr-1 rounded-xl bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors">
+                    <Icons.X width={18} height={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="max-w-5xl mx-auto space-y-4 mb-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              {statsCards.map((card) => (
+                <div key={card.label} className="rounded-2xl border border-white/8 bg-zinc-900/45 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">{card.label}</p>
+                  <p className="text-xl font-bold text-white mt-2">{card.value}</p>
+                  <p className="text-[11px] text-zinc-500 mt-1">{card.hint}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <GlassButton active={activeTab === 'characterSwaps'} onClick={() => setActiveTab('characterSwaps')} className="text-xs py-2 px-3">Character Swaps</GlassButton>
+              <GlassButton active={activeTab === 'fullSets'} onClick={() => setActiveTab('fullSets')} className="text-xs py-2 px-3">Full Sets</GlassButton>
+              {['All', 'Killer', 'Survivor'].map((role) => (
+                <GlassButton key={role} active={roleFilter === role} onClick={() => setRoleFilter(role)} className="text-xs py-2 px-3">{role}</GlassButton>
+              ))}
+              <div className="min-w-[160px]">
+                <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="themed-select w-full text-xs">
+                  <option value="name">Sort: Name A–Z</option>
+                  <option value="base">Sort: Base Character</option>
+                  <option value="collection">Sort: Collection / Group</option>
+                </select>
+              </div>
+              <span className="text-[11px] text-zinc-500 uppercase tracking-[0.18em] self-center">
+                {visibleCount} shown
+              </span>
+            </div>
+          </div>
+          <div className="max-w-5xl mx-auto pb-32 space-y-6">
+            {activeTab === 'characterSwaps' && groupedCharacterSwaps.map((group) => (
+              <section key={group.label} className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">{group.label}</p>
+                    <p className="text-xs text-zinc-500 mt-1">Character-swap cosmetics for base roster characters.</p>
+                  </div>
+                  <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">{group.entries.length}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {group.entries.map((entry) => (
+                    <CosmeticCard key={entry.id} entry={entry} onOpen={onOpenCosmetic} />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {activeTab === 'fullSets' && groupedFullSets.map((group) => (
+              <section key={group.label} className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">{group.label}</p>
+                    <p className="text-xs text-zinc-500 mt-1">Approved official outfit icons grouped by collection.</p>
+                  </div>
+                  <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">{group.entries.length}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {group.entries.map((entry) => (
+                    <CosmeticCard key={entry.id} entry={entry} onOpen={onOpenCosmetic} />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {activeTab === 'characterSwaps' && groupedCharacterSwaps.length === 0 && (
+              <div className="text-center py-12">
+                <Icons.Image width={36} height={36} className="mx-auto text-zinc-700 mb-3" />
+                <p className="text-zinc-500 text-sm">No character swaps match the current filters.</p>
+                <p className="text-zinc-600 text-xs mt-2">Try a broader role filter or clear the current search.</p>
+              </div>
+            )}
+            {activeTab === 'fullSets' && groupedFullSets.length === 0 && (
+              <div className="text-center py-12">
+                <Icons.Image width={36} height={36} className="mx-auto text-zinc-700 mb-3" />
+                <p className="text-zinc-500 text-sm">No full sets match the current filters.</p>
+                <p className="text-zinc-600 text-xs mt-2">Try a different search term, collection, or role filter.</p>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -9983,7 +10985,34 @@
         </div>
       );
     };
-    const SettingsView = ({ onBack, settings, setSettings }) => {
+    const SettingsToggleRow = ({ checked, onChange, label, description }) => (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`w-full flex items-start gap-3 rounded-2xl border px-3 py-3 transition-all text-left select-none touch-manipulation ${checked ? 'bg-white/10 border-white/20' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
+        style={{ WebkitTapHighlightColor: 'transparent' }}
+      >
+        <span
+          aria-hidden="true"
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all"
+          style={{
+            background: checked ? 'var(--accent)' : 'rgba(255,255,255,0.03)',
+            borderColor: checked ? 'var(--accent)' : 'var(--stroke)',
+            boxShadow: checked ? '0 8px 18px rgba(0,0,0,0.28)' : 'none',
+            color: checked ? '#ffffff' : 'transparent'
+          }}
+        >
+          <Icons.Check width={12} height={12} />
+        </span>
+        <span className="min-w-0 flex-1 pointer-events-none">
+          <span className="block text-sm font-medium text-white leading-tight">{label}</span>
+          {description && <span className="mt-1 block text-xs leading-relaxed text-zinc-400">{description}</span>}
+        </span>
+      </button>
+    );
+    const SettingsView = ({ onBack, settings, setSettings, backupSummary, onCopyBackup, onDownloadBackup, onRestoreBackup }) => {
       const updateSetting = (field, value) => setSettings((prev) => {
         if (field === 'navItems') {
           return { ...prev, navItems: value, navItemsCustomized: true };
@@ -9991,6 +11020,40 @@
         return { ...prev, [field]: value };
       });
       const [showChangelog, setShowChangelog] = useState(false);
+      const [backupDraft, setBackupDraft] = useState('');
+      const [backupPreview, setBackupPreview] = useState(null);
+      const [backupError, setBackupError] = useState('');
+      const backupFileInputRef = useRef(null);
+      const refreshBackupPreview = useCallback((value) => {
+        const nextValue = typeof value === 'string' ? value : '';
+        setBackupDraft(nextValue);
+        if (!nextValue.trim()) {
+          setBackupPreview(null);
+          setBackupError('');
+          return;
+        }
+        try {
+          const parsed = parseAppBackupPayload(nextValue);
+          setBackupPreview(parsed);
+          setBackupError('');
+        } catch (error) {
+          setBackupPreview(null);
+          setBackupError(error?.message || 'Backup JSON is invalid.');
+        }
+      }, []);
+      const handleBackupFileChange = useCallback((event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => refreshBackupPreview(String(reader.result || ''));
+        reader.onerror = () => {
+          setBackupPreview(null);
+          setBackupError('Could not read that backup file.');
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+      }, [refreshBackupPreview]);
+      const restorePreview = backupPreview?.payload || null;
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
           <Header title="Settings" subtitle="App preferences" onBack={onBack} infoTips={VIEW_TIPS.settings} />
@@ -10076,26 +11139,32 @@
                   ))}
                 </div>
               )}
-              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={settings.highContrast} onChange={e => updateSetting('highContrast', e.target.checked)} />
-                High contrast / brighter borders
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={settings.showTemplates} onChange={e => updateSetting('showTemplates', e.target.checked)} />
-                Show template builds in Build Lab
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={settings.rarityGlows !== false} onChange={e => updateSetting('rarityGlows', e.target.checked)} />
-                Rarity glow effects on cards
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={settings.hapticEnabled !== false} onChange={e => updateSetting('hapticEnabled', e.target.checked)} />
-                Haptic feedback (vibration)
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={settings.ownedOnlyGlobal === true} onChange={e => updateSetting('ownedOnlyGlobal', e.target.checked)} />
-                Owned Only global filter
-              </label>
+              <div className="space-y-2">
+                <SettingsToggleRow
+                  checked={settings.showTemplates}
+                  onChange={(value) => updateSetting('showTemplates', value)}
+                  label="Show template builds in Build Lab"
+                  description="Keep the premade starter builds visible alongside your own saved builds."
+                />
+                <SettingsToggleRow
+                  checked={settings.rarityGlows !== false}
+                  onChange={(value) => updateSetting('rarityGlows', value)}
+                  label="Rarity glow effects on cards"
+                  description="Adds rarity-colored glow styling to perks, addons, items, and offerings."
+                />
+                <SettingsToggleRow
+                  checked={settings.hapticEnabled !== false}
+                  onChange={(value) => updateSetting('hapticEnabled', value)}
+                  label="Haptic feedback"
+                  description="Use short vibration feedback on supported mobile devices."
+                />
+                <SettingsToggleRow
+                  checked={settings.ownedOnlyGlobal === true}
+                  onChange={(value) => updateSetting('ownedOnlyGlobal', value)}
+                  label="Owned Only global filter"
+                  description="Filters supported views and randomizers to the characters and perks you own."
+                />
+              </div>
             </div>
             <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 space-y-3">
               <h3 className="text-lg font-bold text-white">Perk Descriptions</h3>
@@ -10235,6 +11304,128 @@
                     });
                   })()}
                 </div>
+              </div>
+            </div>
+            <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Data Backup</h3>
+                  <p className="text-sm text-zinc-400 mt-1">Export the full local app state or restore it later. Restores replace your current local data.</p>
+                </div>
+                <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">
+                  JSON
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: 'Builds', value: backupSummary?.builds || 0 },
+                  { label: 'Matches', value: backupSummary?.matches || 0 },
+                  { label: 'Notes', value: backupSummary?.notes || 0 },
+                  { label: 'Owned', value: backupSummary?.ownedCharacters || 0 },
+                  { label: 'Challenges', value: backupSummary?.challenges || 0 },
+                  { label: 'Wordle Games', value: backupSummary?.worldleGamesPlayed || 0 }
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">{item.label}</p>
+                    <p className="text-lg font-bold text-white mt-2">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  onClick={onCopyBackup}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <Icons.Copy width={16} height={16} />
+                  <span className="text-sm font-semibold">Copy Backup JSON</span>
+                </button>
+                <button
+                  onClick={onDownloadBackup}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <Icons.Import width={16} height={16} className="rotate-180" />
+                  <span className="text-sm font-semibold">Download Backup File</span>
+                </button>
+                <button
+                  onClick={() => backupFileInputRef.current?.click()}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <Icons.Import width={16} height={16} />
+                  <span className="text-sm font-semibold">Load Backup File</span>
+                </button>
+              </div>
+              <input
+                ref={backupFileInputRef}
+                type="file"
+                accept=".json,application/json,text/json"
+                className="hidden"
+                onChange={handleBackupFileChange}
+              />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500 font-bold">Restore From JSON</p>
+                  {restorePreview?.meta?.appVersion && (
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500">
+                      backup v{restorePreview.meta.appVersion}
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  value={backupDraft}
+                  onChange={(event) => refreshBackupPreview(event.target.value)}
+                  rows={7}
+                  placeholder="Paste a full backup JSON here..."
+                  className="w-full bg-zinc-800/60 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 font-mono"
+                />
+                {backupError && (
+                  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                    {backupError}
+                  </div>
+                )}
+                {backupPreview?.summary && !backupError && (
+                  <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-4 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-300">
+                        Schema {backupPreview.summary.schemaVersion || 0}
+                      </span>
+                      {backupPreview.summary.exportedAt && (
+                        <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-500">
+                          {new Date(backupPreview.summary.exportedAt).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {[
+                        { label: 'Builds', value: backupPreview.summary.builds },
+                        { label: 'Matches', value: backupPreview.summary.matches },
+                        { label: 'Notes', value: backupPreview.summary.notes },
+                        { label: 'Owned', value: backupPreview.summary.ownedCharacters },
+                        { label: 'Challenges', value: backupPreview.summary.challenges },
+                        { label: 'Wordle Games', value: backupPreview.summary.worldleGamesPlayed }
+                      ].map((item) => (
+                        <div key={item.label} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">{item.label}</p>
+                          <p className="text-sm font-bold text-white mt-1">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!restorePreview) return;
+                        const confirmed = window.confirm('Restore this backup and replace your current local data? This cannot be undone unless you export your current state first.');
+                        if (!confirmed) return;
+                        onRestoreBackup(restorePreview);
+                        setBackupDraft('');
+                        setBackupPreview(null);
+                        setBackupError('');
+                        alert('Backup restored.');
+                      }}
+                      className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-colors"
+                    >
+                      Restore Backup
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5">
@@ -11263,7 +12454,7 @@
         </button>
       );
     };
-    const CharacterProfileModal = ({ character, onClose, allPerks = [], onPerkTap, theme, settings = {}, noteValue = '', onNoteChange }) => {
+    const CharacterProfileModal = ({ character, onClose, allPerks = [], onPerkTap, theme, settings = {}, noteValue = '', onNoteChange, cosmeticsByBaseId = {} }) => {
       if (!character) return null;
       const isKiller = character.type === 'Killer' || character.power;
       const accentColor = isKiller ? '#ef4444' : '#38bdf8';
@@ -11271,6 +12462,34 @@
       const guide = isKiller ? KILLER_GUIDES[character.name] : null;
       const teachables = allPerks.filter(p => p.owner === character.name);
       const [activeTab, setActiveTab] = useState('overview');
+      const cosmeticsSectionRef = useRef(null);
+      const cosmeticsEntries = cosmeticsByBaseId[character.id] || [];
+      const focusedCosmeticId = character.cosmeticFocusId || null;
+      const characterSwapGroups = useMemo(() => {
+        const groups = cosmeticsEntries
+          .filter((entry) => entry.groupKey !== 'fullSet')
+          .reduce((acc, entry) => {
+            if (!acc[entry.groupLabel]) acc[entry.groupLabel] = [];
+            acc[entry.groupLabel].push(entry);
+            return acc;
+          }, {});
+        return ['Legendary', 'Costume', 'Ultra Rare']
+          .map((label) => ({ label, entries: (groups[label] || []).slice().sort((a, b) => a.name.localeCompare(b.name)) }))
+          .filter((group) => group.entries.length > 0);
+      }, [cosmeticsEntries]);
+      const fullSetGroups = useMemo(() => {
+        const groups = cosmeticsEntries
+          .filter((entry) => entry.groupKey === 'fullSet')
+          .reduce((acc, entry) => {
+            const key = entry.collectionName || entry.rarity || 'Other';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(entry);
+            return acc;
+          }, {});
+        return Object.entries(groups)
+          .map(([label, entries]) => ({ label, entries: entries.slice().sort((a, b) => a.name.localeCompare(b.name)) }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+      }, [cosmeticsEntries]);
 
       const releaseInfo = useMemo(() => {
         if (typeof TIMELINE_DATA === 'undefined') return null;
@@ -11286,9 +12505,21 @@
         ? [{ id: 'overview', label: 'Overview' }, { id: 'power', label: 'Power' }, { id: 'perks', label: 'Perks' }, { id: 'lore', label: 'Lore' }]
         : [{ id: 'overview', label: 'Overview' }, { id: 'perks', label: 'Perks' }, { id: 'lore', label: 'Lore' }];
 
+      useEffect(() => {
+        setActiveTab('overview');
+      }, [character.id, focusedCosmeticId]);
+
+      useEffect(() => {
+        if (!focusedCosmeticId || activeTab !== 'overview' || !cosmeticsSectionRef.current) return undefined;
+        const timer = window.setTimeout(() => {
+          cosmeticsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 140);
+        return () => window.clearTimeout(timer);
+      }, [focusedCosmeticId, activeTab, character.id]);
+
       return (
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm" onClick={onClose}>
-          <div className="h-full overflow-y-auto custom-scrollbar" onClick={e => e.stopPropagation()}>
+          <div className="h-full overflow-y-auto custom-scrollbar" data-smoke-profile={character.id} onClick={e => e.stopPropagation()}>
             <div className="max-w-lg mx-auto min-h-full">
               {/* Hero Section */}
               <div className="relative px-6 pb-4" style={{ paddingTop: 'max(1.5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))' }}>
@@ -11398,6 +12629,67 @@
                             </button>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {cosmeticsEntries.length > 0 && (
+                      <div
+                        ref={cosmeticsSectionRef}
+                        data-smoke-cosmetics={character.id}
+                        className="p-4 rounded-2xl bg-white/5 border border-white/10 scroll-mt-24 space-y-4"
+                        style={focusedCosmeticId ? { borderColor: `${accentColor}55`, boxShadow: `0 0 0 1px ${accentColor}15` } : {}}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: accentColor }}>Character Cosmetics</p>
+                            <p className="text-xs text-zinc-500 mt-1">Character swaps and approved full sets linked to this character.</p>
+                          </div>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">
+                              {cosmeticsEntries.length} total
+                            </span>
+                            {characterSwapGroups.length > 0 && (
+                              <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-500">
+                                {characterSwapGroups.reduce((total, group) => total + group.entries.length, 0)} swaps
+                              </span>
+                            )}
+                            {fullSetGroups.length > 0 && (
+                              <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-500">
+                                {fullSetGroups.reduce((total, group) => total + group.entries.length, 0)} full sets
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {characterSwapGroups.map((group) => (
+                          <div key={group.label} className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{group.label}</p>
+                              <span className="text-[10px] uppercase tracking-wider text-zinc-600">{group.entries.length}</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {group.entries.map((entry) => {
+                                const isFocused = entry.id === focusedCosmeticId;
+                                return <CosmeticCard key={entry.id} entry={entry} accentColor={accentColor} focused={isFocused} />;
+                              })}
+                            </div>
+                          </div>
+                        ))}
+
+                        {fullSetGroups.map((group) => (
+                          <div key={group.label} className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{group.label}</p>
+                              <span className="text-[10px] uppercase tracking-wider text-zinc-600">{group.entries.length}</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {group.entries.map((entry) => {
+                                const isFocused = entry.id === focusedCosmeticId;
+                                return <CosmeticCard key={entry.id} entry={entry} accentColor={accentColor} focused={isFocused} />;
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -11549,9 +12841,14 @@
     };
     const App = () => {
       const { killers = [], survivors = [], perks = [], maps = [], realms = [], items = [], offerings = [], addons = [] } = DATABASE;
-      const [currentView, setViewRaw] = useState('home');
-      const [viewContext, setViewContext] = useState({});
-      const viewHistoryRef = useRef([{ view: 'home', context: {} }]);
+      const cosmeticsCatalog = useMemo(
+        () => normalizeCosmeticsCatalog(typeof COSMETICS_CATALOG === 'undefined' ? {} : COSMETICS_CATALOG),
+        []
+      );
+      const launchContext = useMemo(() => readLaunchContext(), []);
+      const [currentView, setViewRaw] = useState(launchContext.view || 'home');
+      const [viewContext, setViewContext] = useState(launchContext.context || {});
+      const viewHistoryRef = useRef([{ view: launchContext.view || 'home', context: launchContext.context || {} }]);
       const mainRef = useRef(null);
       const setView = (view, context = {}) => {
         setViewContext(context);
@@ -11583,6 +12880,19 @@
       const [powerKiller, setPowerKiller] = useState(null);
       const [profileCharacter, setProfileCharacter] = useState(null);
       const [layoutMap, setLayoutMap] = useState(null);
+      const allCharactersById = useMemo(() => new Map([...killers, ...survivors].map((character) => [character.id, character])), [killers, survivors]);
+      const readyCharacterSwaps = useMemo(() => cosmeticsCatalog.characterSwaps.filter((entry) => entry.status === 'ready'), [cosmeticsCatalog]);
+      const readyFullSets = useMemo(() => cosmeticsCatalog.fullSets.filter((entry) => entry.status === 'ready'), [cosmeticsCatalog]);
+      const readyCosmetics = useMemo(() => [...readyCharacterSwaps, ...readyFullSets], [readyCharacterSwaps, readyFullSets]);
+      const openCosmeticProfile = useCallback((cosmetic) => {
+        if (!cosmetic) return;
+        const baseCharacter = allCharactersById.get(cosmetic.baseCharacterId);
+        if (!baseCharacter) return;
+        setProfileCharacter({
+          ...baseCharacter,
+          cosmeticFocusId: cosmetic.id
+        });
+      }, [allCharactersById]);
       const togglePerkCompare = (perk) => {
         setComparePerks(prev => {
           const exists = prev.find(p => p.id === perk.id);
@@ -11627,8 +12937,24 @@
       const [progression, setProgression] = useState(initialProgression);
       const [notes, setNotes] = useState(initialNotes);
       const [worldleState, setWorldleState] = useState(initialWorldle);
-      const [matchPrefs, setMatchPrefs] = useState(() => loadFromStorage(STORAGE_KEYS.lastContext, DEFAULT_MATCH_PREFS));
+      const [matchPrefs, setMatchPrefs] = useState(() => normalizeMatchPrefs(loadFromStorage(STORAGE_KEYS.lastContext, DEFAULT_MATCH_PREFS)));
       const device = useDeviceProfile();
+      const cosmeticsByBaseId = useMemo(() => {
+        return readyCosmetics.reduce((acc, entry) => {
+          if (!acc[entry.baseCharacterId]) acc[entry.baseCharacterId] = [];
+          acc[entry.baseCharacterId].push(entry);
+          return acc;
+        }, {});
+      }, [readyCosmetics]);
+      useEffect(() => {
+        if (!launchContext.profileId) return;
+        const target = allCharactersById.get(launchContext.profileId);
+        if (!target) return;
+        setProfileCharacter({
+          ...target,
+          ...(launchContext.cosmeticId ? { cosmeticFocusId: launchContext.cosmeticId } : {})
+        });
+      }, [launchContext, allCharactersById]);
       useEffect(() => {
         let cancelled = false;
         const timer = window.setTimeout(() => {
@@ -11679,19 +13005,42 @@
         const rootEl = document.documentElement;
         const hasFullPalette = !!theme.palette;
         const palette = hasFullPalette ? theme.palette : (COLOR_MODES[settings.colorMode] || COLOR_MODES.dark);
-        const boost = !hasFullPalette && settings.highContrast;
         const isLight = !hasFullPalette && settings.colorMode === 'light';
-        const panel = boost ? (isLight ? 'rgba(255,255,255,0.96)' : 'rgba(255,255,255,0.08)') : palette.panel;
-        const stroke = boost ? (isLight ? '#e2e8f0' : 'rgba(255,255,255,0.22)') : palette.stroke;
-        const chip = boost ? (isLight ? 'rgba(148,163,184,0.24)' : 'rgba(255,255,255,0.12)') : palette.chip;
+        const panel = palette.panel;
+        const stroke = palette.stroke;
+        const chip = palette.chip;
         const text = palette.text;
         const muted = palette.muted;
-        const navBg = boost ? (isLight ? 'rgba(255,255,255,0.95)' : 'rgba(12, 16, 26, 0.95)') : palette.nav;
-        const glassBg = boost ? (isLight ? '#eef2f7' : '#161d2e') : palette.glass;
-        const ghost = boost ? (isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.12)') : palette.ghost;
-        const ghostStrong = boost ? (isLight ? 'rgba(15,23,42,0.26)' : 'rgba(255,255,255,0.28)') : palette.ghostStrong;
-        const shadowSoft = boost ? (isLight ? '0 12px 38px rgba(15,23,42,0.18)' : '0 12px 38px rgba(0,0,0,0.52)') : palette.shadowSoft;
-        const shadowStrong = boost ? (isLight ? '0 22px 90px rgba(15,23,42,0.28)' : '0 22px 90px rgba(0,0,0,0.65)') : palette.shadowStrong;
+        const navBg = palette.nav;
+        const glassBg = palette.glass;
+        const ghost = palette.ghost;
+        const ghostStrong = palette.ghostStrong;
+        const shadowSoft = palette.shadowSoft;
+        const shadowStrong = palette.shadowStrong;
+        const appShellBg = hasFullPalette
+          ? (palette.appShellBg || `linear-gradient(180deg, ${palette.bg01}, ${palette.bg02})`)
+          : `linear-gradient(180deg, ${palette.bg01}, ${palette.bg02})`;
+        const ambientGlow = hasFullPalette
+          ? (palette.ambientGlow || 'radial-gradient(120% 120% at 20% 20%, rgba(255,255,255,0.08), transparent 55%)')
+          : 'radial-gradient(120% 120% at 20% 20%, rgba(56, 189, 248, 0.08), transparent 55%)';
+        const ambientOpacity = hasFullPalette ? (palette.ambientOpacity || '0.35') : '0.35';
+        const selectionBg = hasFullPalette ? (palette.selectionBg || 'rgba(56, 189, 248, 0.2)') : 'rgba(56, 189, 248, 0.2)';
+        const selectionText = hasFullPalette ? (palette.selectionText || text) : '#ffffff';
+        const fullPanelBg = hasFullPalette ? (palette.fullPanelBg || panel) : panel;
+        const fullPanelBorder = hasFullPalette ? (palette.fullPanelBorder || stroke) : stroke;
+        const fullButtonBg = hasFullPalette ? (palette.fullButtonBg || glassBg) : '#0a0a0a';
+        const fullButtonBorder = hasFullPalette ? (palette.fullButtonBorder || stroke) : stroke;
+        const fullButtonText = hasFullPalette ? (palette.fullButtonText || muted) : muted;
+        const fullButtonActiveBg = hasFullPalette ? (palette.fullButtonActiveBg || glassBg) : (isLight ? '#f8fafc' : '#0a0a0a');
+        const fullSelectBg = hasFullPalette ? (palette.fullSelectBg || glassBg) : glassBg;
+        const fullSelectBorder = hasFullPalette ? (palette.fullSelectBorder || stroke) : stroke;
+        const fullSelectText = hasFullPalette ? (palette.fullSelectText || text) : text;
+        const fullSelectShadow = hasFullPalette
+          ? (palette.fullSelectShadow || 'inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 28px rgba(0,0,0,0.35)')
+          : (isLight
+            ? 'inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 28px rgba(15, 23, 42, 0.16)'
+            : 'inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 28px rgba(0,0,0,0.35)');
+        const fullSelectFocusRing = hasFullPalette ? (palette.fullSelectFocusRing || 'rgba(56, 189, 248, 0.25)') : 'rgba(56, 189, 248, 0.25)';
         rootEl.style.setProperty('--bg-01', palette.bg01);
         rootEl.style.setProperty('--bg-02', palette.bg02);
         rootEl.style.setProperty('--panel', panel);
@@ -11705,6 +13054,11 @@
         rootEl.style.setProperty('--ghost-strong', ghostStrong);
         rootEl.style.setProperty('--shadow-soft', shadowSoft);
         rootEl.style.setProperty('--shadow-strong', shadowStrong);
+        rootEl.style.setProperty('--app-shell-bg', appShellBg);
+        rootEl.style.setProperty('--ambient-glow', ambientGlow);
+        rootEl.style.setProperty('--ambient-opacity', ambientOpacity);
+        rootEl.style.setProperty('--selection-bg', selectionBg);
+        rootEl.style.setProperty('--selection-text', selectionText);
         const effectiveAccent = (isLight && theme.accent === '#ffffff') ? '#0f172a' : theme.accent;
         const effectiveAccentSoft = (isLight && theme.accent === '#ffffff') ? '#e2e8f0' : theme.accentSoft;
         rootEl.style.setProperty('--accent', effectiveAccent);
@@ -11712,13 +13066,23 @@
         rootEl.style.setProperty('--tile-border', theme.tileBorder);
         rootEl.style.setProperty('--tile-shadow', theme.tileShadow);
         rootEl.style.setProperty('--tile-gradient', theme.tileGradient);
+        rootEl.style.setProperty('--full-panel-bg', fullPanelBg);
+        rootEl.style.setProperty('--full-panel-border', fullPanelBorder);
+        rootEl.style.setProperty('--full-button-bg', fullButtonBg);
+        rootEl.style.setProperty('--full-button-border', fullButtonBorder);
+        rootEl.style.setProperty('--full-button-text', fullButtonText);
+        rootEl.style.setProperty('--full-button-active-bg', fullButtonActiveBg);
+        rootEl.style.setProperty('--full-select-bg', fullSelectBg);
+        rootEl.style.setProperty('--full-select-border', fullSelectBorder);
+        rootEl.style.setProperty('--full-select-text', fullSelectText);
+        rootEl.style.setProperty('--full-select-shadow', fullSelectShadow);
+        rootEl.style.setProperty('--full-select-focus-ring', fullSelectFocusRing);
         const fontSize = settings.fontSize === 'small' ? '14px' : settings.fontSize === 'large' ? '18px' : '16px';
         rootEl.style.fontSize = fontSize;
         document.body.classList.toggle('light-mode', !hasFullPalette && settings.colorMode === 'light');
         document.body.classList.toggle('oled-mode', !hasFullPalette && settings.colorMode === 'oled');
-        document.body.classList.toggle('high-contrast', boost);
-        document.body.classList.toggle('nord-mode', hasFullPalette && themeKey === 'nord');
-      }, [theme, themeKey, settings.fontSize, settings.colorMode, settings.highContrast]);
+        document.body.classList.toggle('full-palette-mode', hasFullPalette);
+      }, [theme, themeKey, settings.fontSize, settings.colorMode]);
       const liveLookups = useMemo(() => buildDataLookups({ killers, survivors, perks, maps, builds }), [killers, survivors, perks, maps, builds]);
       const ownedState = useMemo(() => resolveOwnedState({ progression, killers, survivors, perks }), [progression, killers, survivors, perks]);
       const visibleKillers = useMemo(() => settings.ownedOnlyGlobal ? killers.filter(killer => ownedState.isCharacterOwned(killer.id)) : killers, [settings.ownedOnlyGlobal, killers, ownedState]);
@@ -11758,6 +13122,59 @@
         setMatches(prev => [record, ...prev]);
         if (record.buildId) markBuildUsed(record.buildId);
       };
+      const appBackupPayload = useMemo(() => createAppBackupPayload({
+        settings,
+        builds,
+        matches,
+        progression,
+        notes,
+        worldleState,
+        matchPrefs,
+        appVersion: META.appVersion,
+        gameVersion: META.gameVersion,
+        lastSynced: META.lastSynced
+      }), [settings, builds, matches, progression, notes, worldleState, matchPrefs]);
+      const appBackupSummary = useMemo(() => summarizeAppBackupPayload(appBackupPayload), [appBackupPayload]);
+      const copyAppBackup = useCallback(() => {
+        const text = JSON.stringify(appBackupPayload, null, 2);
+        if (!navigator.clipboard?.writeText) {
+          alert('Clipboard export is not available here. Use Download Backup File instead.');
+          return;
+        }
+        navigator.clipboard.writeText(text)
+          .then(() => alert('Backup JSON copied to clipboard.'))
+          .catch(() => alert('Could not copy the backup JSON. Use Download Backup File instead.'));
+      }, [appBackupPayload]);
+      const downloadAppBackup = useCallback(() => {
+        const text = JSON.stringify(appBackupPayload, null, 2);
+        downloadTextFile(buildBackupFilename(appBackupPayload), text);
+      }, [appBackupPayload]);
+      const restoreAppBackup = useCallback((payload) => {
+        const backupData = payload?.data && typeof payload.data === 'object' ? payload.data : {};
+        const restoredSettings = normalizeSettings(backupData.settings);
+        const restoredBuilds = Array.isArray(backupData.builds) ? backupData.builds : [];
+        const restoredProgression = normalizeProgression(backupData.progression);
+        const restoredNotes = normalizeNotesStore(backupData.notes);
+        const restoredWorldle = normalizeWorldleState(backupData.worldle);
+        const restoredPrefs = normalizeMatchPrefs(backupData.lastContext);
+        const restoredLookups = buildDataLookups({ killers, survivors, perks, maps, builds: restoredBuilds });
+        const restoredMatches = normalizeMatchRecords(backupData.matches, restoredLookups);
+        setSettings(restoredSettings);
+        setBuilds(restoredBuilds);
+        setMatches(restoredMatches);
+        setProgression(restoredProgression);
+        setNotes(restoredNotes);
+        setWorldleState(restoredWorldle);
+        setMatchPrefs(restoredPrefs);
+        setSelectedPerk(null);
+        setLoreCharacter(null);
+        setPowerKiller(null);
+        setProfileCharacter(null);
+        setLayoutMap(null);
+        setBuildSeed(null);
+        setComparePerks([]);
+        setShowCompareModal(false);
+      }, [killers, survivors, perks, maps]);
       const [touchStart, setTouchStart] = useState(null);
       const navOrder = ['home', ...(settings.navItems || DEFAULT_SETTINGS.navItems), 'settings'];
       const handleTouchStart = (e) => {
@@ -11791,7 +13208,7 @@
       };
       const renderContent = () => {
         switch (currentView) {
-          case 'home': return <HomeView setView={setView} data={{ killers: visibleKillers, survivors: visibleSurvivors, perks: visiblePerks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={visiblePerks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={visibleAddons} offerings={offerings} />;
+          case 'home': return <HomeView setView={setView} data={{ killers: visibleKillers, survivors: visibleSurvivors, perks: visiblePerks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={visiblePerks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={visibleAddons} offerings={offerings} cosmeticsCatalog={cosmeticsCatalog} allCharacters={[...killers, ...survivors]} onOpenCharacterProfile={setProfileCharacter} />;
           case 'progression':
             return (
               <ProgressionView
@@ -11813,6 +13230,8 @@
             );
           case 'worldle':
             return <WorldleView onBack={() => setView('home')} killers={killers} perks={perks} worldleState={worldleState} setWorldleState={setWorldleState} isCompactLayout={device.width <= 640} />;
+          case 'cosmetics':
+            return <CosmeticsView onBack={() => setView('home')} cosmeticsCatalog={cosmeticsCatalog} onOpenCosmetic={openCosmeticProfile} initialTab={viewContext.tab || 'characterSwaps'} />;
           case 'buildLab':
           case 'builds':
             return (
@@ -11842,18 +13261,20 @@
           case 'glossary': return <GlossaryView onBack={() => setView('home')} />;
           case 'prestige': return <PrestigeCalculatorView onBack={() => setView('home')} />;
           case 'gameIcons': return <GameIconsView onBack={() => setView('home')} theme={theme} />;
-          case 'items': return <ItemsView onBack={() => setView('home')} items={items} addons={visibleAddons} killers={visibleKillers} settings={settings} initialSearch={viewContext.search || ''} initialMode={viewContext.mode || 'survivor'} favoriteItems={settings.favoriteItems || []} favoriteAddons={settings.favoriteAddons || []} onToggleFavoriteItem={(id) => toggleFavorite('Item', id)} onToggleFavoriteAddon={(id) => toggleFavorite('Addon', id)} />;
-          case 'offerings': return <OfferingsView onBack={() => setView('home')} offerings={offerings} initialSearch={viewContext.search || ''} favoriteOfferings={settings.favoriteOfferings || []} onToggleFavoriteOffering={(id) => toggleFavorite('Offering', id)} />;
+          case 'items': return <ItemsView onBack={() => setView('home')} items={items} addons={visibleAddons} killers={visibleKillers} settings={settings} initialSearch={viewContext.search || ''} initialMode={viewContext.mode || 'survivor'} initialTargetId={viewContext.targetId || ''} initialTargetType={viewContext.targetType || ''} favoriteItems={settings.favoriteItems || []} favoriteAddons={settings.favoriteAddons || []} onToggleFavoriteItem={(id) => toggleFavorite('Item', id)} onToggleFavoriteAddon={(id) => toggleFavorite('Addon', id)} />;
+          case 'offerings': return <OfferingsView onBack={() => setView('home')} offerings={offerings} initialSearch={viewContext.search || ''} initialTargetId={viewContext.targetId || ''} favoriteOfferings={settings.favoriteOfferings || []} onToggleFavoriteOffering={(id) => toggleFavorite('Offering', id)} />;
           case 'quotes': return <QuotesView onBack={() => setView('home')} />;
           case 'timeline': return <TimelineView onBack={() => setView('home')} setView={setView} killers={killers} survivors={survivors} theme={theme} />;
-          case 'settings': return <SettingsView onBack={() => setView('home')} settings={settings} setSettings={setSettings} />;
+          case 'settings': return <SettingsView onBack={() => setView('home')} settings={settings} setSettings={setSettings} backupSummary={appBackupSummary} onCopyBackup={copyAppBackup} onDownloadBackup={downloadAppBackup} onRestoreBackup={restoreAppBackup} />;
           case 'favorites': return <FavoritesView onBack={() => setView('home')} settings={settings} killers={killers} survivors={survivors} perks={perks} items={items} addons={addons} offerings={offerings} toggleFavorite={toggleFavorite} setView={setView} onPerkTap={setSelectedPerk} />;
-          default: return <HomeView setView={setView} data={{ killers: visibleKillers, survivors: visibleSurvivors, perks: visiblePerks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={visiblePerks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={visibleAddons} offerings={offerings} />;
+          default: return <HomeView setView={setView} data={{ killers: visibleKillers, survivors: visibleSurvivors, perks: visiblePerks }} theme={theme} builds={builds} maps={maps} challenges={progression?.challenges || []} setBuildSeed={setBuildSeed} perks={visiblePerks} customHomeTiles={settings.homeTiles || DEFAULT_SETTINGS.homeTiles} items={items} addons={visibleAddons} offerings={offerings} cosmeticsCatalog={cosmeticsCatalog} allCharacters={[...killers, ...survivors]} onOpenCharacterProfile={setProfileCharacter} />;
         }
       };
       return (
         <div
-          className={`app-shell flex flex-col h-screen w-full text-slate-100 overflow-hidden relative ${settings.highContrast ? 'ring-1 ring-white/10' : ''}`}
+          data-smoke-ready="true"
+          data-smoke-view={currentView}
+          className="app-shell flex flex-col h-screen w-full text-slate-100 overflow-hidden relative"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -11906,6 +13327,7 @@
               settings={settings}
               noteValue={profileCharacter && (profileCharacter.type === 'Killer' || profileCharacter.power) ? getEntityNote('killer', profileCharacter.id) : ''}
               onNoteChange={(value) => setEntityNote('killer', profileCharacter?.id, value)}
+              cosmeticsByBaseId={cosmeticsByBaseId}
             />
           )}
           {/* Bottom Sheet for perk details */}
