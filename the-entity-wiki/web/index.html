@@ -734,6 +734,7 @@
   <script src="data.js"></script>
   <script src="lore.js"></script>
   <script src="cosmetics.js"></script>
+  <script src="community-content.js"></script>
   <script src="worldle-data.js"></script>
   <script>
     (() => {
@@ -1079,7 +1080,7 @@
       }
     };
     const META = {
-      appVersion: "5.27.0",
+      appVersion: "5.28.0",
       gameVersion: "9.5.0",
       lastSynced: "March 29, 2026",
       contact: {
@@ -1089,12 +1090,23 @@
       thanks: [
         "Hens333 - High quality map layouts",
         "Claude - Debugging and Scraping",
+        "Codex - Feedback and refactoring",
         "Steam Community - Map layout guides",
         "DBD Fandom Wiki - Game data and assets",
         "DBD Public API - Most up to date game data"
       ]
     };
     const CHANGELOG = [
+      {
+        version: "5.28.0",
+        date: "April 12, 2026",
+        changes: [
+          "FIX : Submit button now works properly",
+          "FIX : Searching for addons now opens them properly",
+          "NEW : Backup and Restore the app",
+          "NEW : Legendary character browser"
+        ]
+      },
       {
         version: "5.27.0",
         date: "April 10, 2026",
@@ -1931,6 +1943,7 @@
       { id: 'roulette', label: 'Shuffle' },
       { id: 'worldle', label: 'Wordle' },
       { id: 'progression', label: 'Progression' },
+      { id: 'communityContent', label: 'Community' },
       { id: 'cosmetics', label: 'Cosmetics' },
       { id: 'favorites', label: 'Favorites' },
       { id: 'killers', label: 'Killers' },
@@ -1949,7 +1962,8 @@
       { id: 'buildLab', label: 'Build Lab', icon: 'Wrench', desc: 'Craft and save loadouts' },
       { id: 'favorites', label: 'My Favorites', icon: 'Star', desc: 'All your bookmarked content' },
       { id: 'progression', label: 'Progression Hub', icon: 'Target', desc: 'Achievements, roster, challenges and analytics' },
-      { id: 'cosmetics', label: 'Legendary Characters', icon: 'Image', desc: 'Browse character swaps and approved full sets' },
+      { id: 'communityContent', label: 'Community Content', icon: 'Info', desc: 'Otz tierlists, builds, and character intel' },
+      { id: 'cosmetics', label: 'Cosmetics', icon: 'Image', desc: 'Browse all cosmetics by role, character, and rarity' },
       { id: 'worldle', label: 'Wordle', icon: 'Notepad', desc: 'Daily and practice DBD guessing games' },
       { id: 'matches', label: 'Match Log', icon: 'List', desc: 'Track matches & notes' },
       { id: 'prestige', label: "Entity's Offering", icon: 'Droplet', desc: 'BP calculator for prestiges' },
@@ -1969,6 +1983,7 @@
       roulette: 'Dices',
       worldle: 'Notepad',
       progression: 'Target',
+      communityContent: 'Info',
       cosmetics: 'Image',
       favorites: 'Star',
       killers: 'Sword',
@@ -2011,7 +2026,7 @@
       progressionTabOrder: [...PROGRESSION_TABS],
       navItemsCustomized: false,
       navItems: ['perks', 'killers', 'survivors'],
-      homeTiles: ['killers', 'survivors', 'perks', 'buildLab', 'favorites', 'progression', 'cosmetics', 'worldle', 'matches', 'roulette', 'realms', 'glossary', 'import', 'timeline'],
+      homeTiles: ['killers', 'survivors', 'perks', 'buildLab', 'favorites', 'progression', 'communityContent', 'cosmetics', 'worldle', 'matches', 'roulette', 'realms', 'glossary', 'import', 'timeline'],
       favoritePerks: [],
       favoriteKillers: [],
       favoriteSurvivors: [],
@@ -2133,6 +2148,25 @@
         .map((entry) => {
           if (!entry || typeof entry !== 'object') return null;
           if (!entry.id || !entry.name || !entry.baseCharacterId || !entry.baseCharacterName || !entry.baseCharacterType || !entry.groupKey || !entry.groupLabel || !entry.image) return null;
+          const boundSlots = Array.isArray(entry.boundSlots)
+            ? entry.boundSlots.filter(Boolean).map((slot) => String(slot))
+            : [];
+          const mode = String(entry.outfitLinkMode || '').toLowerCase();
+          const isCharacterSwap = typeof entry.isCharacterSwap === 'boolean'
+            ? entry.isCharacterSwap
+            : mode === 'character_swap';
+          const fallbackMode = isCharacterSwap
+            ? 'character_swap'
+            : (boundSlots.length >= 2 ? 'linked' : (boundSlots.length === 1 ? 'partially_linked' : 'unlinked'));
+          const outfitLinkMode = ['character_swap', 'linked', 'partially_linked', 'unlinked'].includes(mode)
+            ? mode
+            : fallbackMode;
+          const bindSummary = entry.bindSummary
+            ? String(entry.bindSummary)
+            : (boundSlots.length ? boundSlots.join(' + ') : '');
+          const isLinkedSet = typeof entry.isLinkedSet === 'boolean'
+            ? entry.isLinkedSet
+            : (!isCharacterSwap && outfitLinkMode !== 'unlinked');
           return {
             id: String(entry.id),
             name: String(entry.name),
@@ -2149,6 +2183,13 @@
             assetProvenance: entry.assetProvenance ? String(entry.assetProvenance) : '',
             status: entry.status ? String(entry.status) : 'blocked_art',
             rarity: entry.rarity ? String(entry.rarity) : '',
+            outfitLinkMode,
+            boundSlots,
+            bindSummary,
+            isLinkedSet,
+            isCharacterSwap,
+            pieceType: entry.pieceType ? String(entry.pieceType) : '',
+            sourceBucket: entry.sourceBucket ? String(entry.sourceBucket) : '',
             description: entry.description ? String(entry.description) : ''
           };
         })
@@ -2162,6 +2203,73 @@
         metadata: raw.metadata && typeof raw.metadata === 'object' && !Array.isArray(raw.metadata) ? raw.metadata : {},
         characterSwaps: normalizeCosmeticsEntries(raw.characterSwaps),
         fullSets: normalizeCosmeticsEntries(raw.fullSets)
+      };
+    };
+    const normalizeCommunityContentSnapshot = (raw) => {
+      const emptyShape = {
+        generatedAt: '',
+        metadata: {},
+        links: [],
+        addonTierlist: { title: '', notes: [], killers: [], stats: {} },
+        builds: { lastUpdateLabel: '', roles: { killers: [], survivors: [] }, perkDetails: { killers: [], survivors: [] }, stats: {} },
+        characterInfo: { title: '', description: '', killers: [], survivors: [], perks: [], stats: {} },
+        beginnerGuides: { title: '', description: '', entries: [], stats: {} },
+        tierlists: { title: '', description: '', entries: [], stats: {} },
+        guideVault: { title: '', description: '', entries: [], stats: {} }
+      };
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return emptyShape;
+      }
+      return {
+        ...emptyShape,
+        ...raw,
+        links: Array.isArray(raw.links) ? raw.links : [],
+        addonTierlist: {
+          ...emptyShape.addonTierlist,
+          ...(raw.addonTierlist && typeof raw.addonTierlist === 'object' ? raw.addonTierlist : {}),
+          notes: Array.isArray(raw.addonTierlist?.notes) ? raw.addonTierlist.notes : [],
+          killers: Array.isArray(raw.addonTierlist?.killers)
+            ? raw.addonTierlist.killers.map((killer) => ({
+              ...killer,
+              addons: Array.isArray(killer?.addons) ? killer.addons : [],
+              combos: Array.isArray(killer?.combos) ? killer.combos : []
+            }))
+            : []
+        },
+        builds: {
+          ...emptyShape.builds,
+          ...(raw.builds && typeof raw.builds === 'object' ? raw.builds : {}),
+          roles: {
+            killers: Array.isArray(raw.builds?.roles?.killers) ? raw.builds.roles.killers : [],
+            survivors: Array.isArray(raw.builds?.roles?.survivors) ? raw.builds.roles.survivors : []
+          },
+          perkDetails: {
+            killers: Array.isArray(raw.builds?.perkDetails?.killers) ? raw.builds.perkDetails.killers : [],
+            survivors: Array.isArray(raw.builds?.perkDetails?.survivors) ? raw.builds.perkDetails.survivors : []
+          }
+        },
+        characterInfo: {
+          ...emptyShape.characterInfo,
+          ...(raw.characterInfo && typeof raw.characterInfo === 'object' ? raw.characterInfo : {}),
+          killers: Array.isArray(raw.characterInfo?.killers) ? raw.characterInfo.killers : [],
+          survivors: Array.isArray(raw.characterInfo?.survivors) ? raw.characterInfo.survivors : [],
+          perks: Array.isArray(raw.characterInfo?.perks) ? raw.characterInfo.perks : []
+        },
+        beginnerGuides: {
+          ...emptyShape.beginnerGuides,
+          ...(raw.beginnerGuides && typeof raw.beginnerGuides === 'object' ? raw.beginnerGuides : {}),
+          entries: Array.isArray(raw.beginnerGuides?.entries) ? raw.beginnerGuides.entries : []
+        },
+        tierlists: {
+          ...emptyShape.tierlists,
+          ...(raw.tierlists && typeof raw.tierlists === 'object' ? raw.tierlists : {}),
+          entries: Array.isArray(raw.tierlists?.entries) ? raw.tierlists.entries : []
+        },
+        guideVault: {
+          ...emptyShape.guideVault,
+          ...(raw.guideVault && typeof raw.guideVault === 'object' ? raw.guideVault : {}),
+          entries: Array.isArray(raw.guideVault?.entries) ? raw.guideVault.entries : []
+        }
       };
     };
     const readLaunchContext = () => {
@@ -3455,7 +3563,28 @@
       "Forgotten Ruins": [{ path: "map_layouts_hens/forgotten_ruins.webp", label: "" }],
       "Freddy Fazbear's Pizza": [{ path: "map_layouts_hens/freddy_fazbears_pizza.webp", label: "" }],
       "Fallen Refuge": [{ path: "map_layouts_hens/fallen_refuge.webp", label: "" }],
-      "Dead Sands": [{ path: "map_layouts_hens/dead_sands.webp", label: "" }]
+      "Dead Sands": [{ path: "map_layouts_hens/dead_sands.webp", label: "" }],
+      "The Underground Complex": [{ path: "map_layouts_hens/the_underground_complex.webp", label: "" }],
+      "Trickster's Delusion": [{ path: "map_layouts_hens/tricksters_delusion.webp", label: "" }]
+    };
+    const normalizeMapLayoutName = (value) => String(value || '')
+      .replace(/\u2019/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+    const getMapLayoutsForName = (mapName) => {
+      const normalized = normalizeMapLayoutName(mapName);
+      const direct = MAP_LAYOUTS[normalized];
+      if (Array.isArray(direct)) return direct;
+
+      const withoutThe = normalized.replace(/^The\s+/i, '').trim();
+      const noTheMatch = MAP_LAYOUTS[withoutThe];
+      if (Array.isArray(noTheMatch)) return noTheMatch;
+
+      const withThe = `The ${withoutThe}`;
+      const withTheMatch = MAP_LAYOUTS[withThe];
+      if (Array.isArray(withTheMatch)) return withTheMatch;
+
+      return [];
     };
     const GAME_ICONS = [
       { id: "healthy", name: "Healthy", category: "health", type: "neutral", icon: "./dbd_images/game_icons/healthy.png", description: "The Survivor is at full health and can take two hits before being downed." },
@@ -4207,10 +4336,17 @@
         { action: 'Search & Sort', description: 'Search by name/description. Sort by rarity or alphabetically.' },
       ],
       cosmetics: [
-        { action: 'Character Swaps', description: 'Browse Legendary, Costume, and Ultra Rare character swaps grouped by rarity.' },
-        { action: 'Full Sets', description: 'Switch to Full Sets to browse approved outfit icons grouped by collection.' },
-        { action: 'Search & Filter', description: 'Search by cosmetic name, collection, or base character, and filter by role.' },
+        { action: 'Role Selector', description: 'Use the top selector to switch between Killer and Survivor cosmetics.' },
+        { action: 'Character Dropdown', description: 'Choose All characters in the selected role or focus on one base character.' },
+        { action: 'Rarity Order', description: 'Cosmetics are grouped and sorted by rarity so high-tier entries stay easy to spot.' },
         { action: 'Open Profile', description: 'Open any cosmetic card to jump to the base character profile and focus that cosmetic.' },
+      ],
+      communitycontent: [
+        { action: 'Offline Snapshot', description: 'All community data is bundled at build time and can be explored without runtime API calls.' },
+        { action: 'Addon Tierlist', description: 'Browse ranked addons, killer-specific combos, and local addon art mappings.' },
+        { action: 'Build Deep Dive', description: 'Open any build and tap perks to read full descriptions and obtainment details.' },
+        { action: 'Academy + Tierlists', description: 'Use Beginner Academy and Tierlists tabs for onboarding and patch-aware ranking history.' },
+        { action: 'Guide Vault', description: 'Browse curated external resources grouped by source type and searchable context.' },
       ],
       prestige: [
         { action: 'Input Levels', description: 'Enter your current prestige/level and target prestige to calculate the bloodpoints needed.' },
@@ -5477,9 +5613,9 @@
           searchableCosmetics.forEach((cosmetic) => allItems.push({
             ...cosmetic,
             _category: 'Cosmetic',
-            description: cosmetic.groupKey === 'fullSet'
-              ? `${cosmetic.collectionName || cosmetic.rarity || 'Full Set'} cosmetic for ${cosmetic.baseCharacterName}`
-              : `${cosmetic.groupLabel} character-swap cosmetic for ${cosmetic.baseCharacterName}`
+            description: cosmetic.isCharacterSwap
+              ? `Character swaps outfit for ${cosmetic.baseCharacterName}`
+              : `${cosmetic.collectionName || cosmetic.sourceBucket || cosmetic.rarity || 'Cosmetic'} ${cosmetic.pieceType || 'cosmetic'} for ${cosmetic.baseCharacterName}${cosmetic.bindSummary ? ` (${cosmetic.bindSummary})` : ''}`
           }));
         }
 
@@ -5692,11 +5828,11 @@
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-bold text-sm">{item.name}</p>
-                          <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{item.groupKey === 'fullSet' ? 'Full Set Cosmetic' : item.groupLabel}</p>
+                          <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{item.isCharacterSwap ? 'Character swaps' : `${item.pieceType || 'Cosmetic'} Cosmetic`}</p>
                           <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
-                            {item.groupKey === 'fullSet'
-                              ? `${item.collectionName || item.rarity || 'Full Set'} cosmetic for ${item.baseCharacterName}`
-                              : `Character-swap cosmetic for ${item.baseCharacterName}`}
+                            {item.isCharacterSwap
+                              ? `Character swaps outfit for ${item.baseCharacterName}`
+                              : `${item.collectionName || item.sourceBucket || item.rarity || 'Cosmetic'} ${item.pieceType || 'cosmetic'} for ${item.baseCharacterName}${item.bindSummary ? ` (${item.bindSummary})` : ''}`}
                           </p>
                         </div>
                         <button
@@ -10607,10 +10743,66 @@
       );
     };
     const compareUiText = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base' });
+    const getOutfitLinkModeLabel = (mode) => {
+      switch (String(mode || '').toLowerCase()) {
+        case 'linked': return 'Linked Outfit';
+        case 'partially_linked': return 'Partial Link';
+        case 'unlinked': return 'Unlinked Outfit';
+        case 'character_swap': return 'Character swaps';
+        default: return 'Outfit';
+      }
+    };
+    const getOutfitLinkModeChipClasses = (mode) => {
+      switch (String(mode || '').toLowerCase()) {
+        case 'linked': return 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20';
+        case 'partially_linked': return 'bg-amber-500/10 text-amber-200 border-amber-500/20';
+        case 'unlinked': return 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20';
+        case 'character_swap': return 'bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20';
+        default: return 'bg-white/5 text-zinc-300 border-white/10';
+      }
+    };
+    const normalizeRarityKeyForSort = (rarity) => {
+      const normalized = String(rarity || '').toLowerCase().replace(/[^a-z]+/g, '');
+      if (normalized === 'common') return 'common';
+      if (normalized === 'uncommon') return 'uncommon';
+      if (normalized === 'rare') return 'rare';
+      if (normalized === 'veryrare') return 'veryrare';
+      if (['ultrarare', 'iridescent', 'visceral'].includes(normalized)) return 'ultrarare';
+      if (normalized === 'legendary') return 'legendary';
+      if (normalized === 'event') return 'event';
+      return 'other';
+    };
+    const raritySortRank = (rarity) => {
+      const key = normalizeRarityKeyForSort(rarity);
+      const order = {
+        common: 0,
+        uncommon: 1,
+        rare: 2,
+        veryrare: 3,
+        ultrarare: 4,
+        legendary: 5,
+        event: 6,
+        other: 7
+      };
+      return order[key] ?? order.other;
+    };
+    const sortCosmeticsByRarity = (entries = []) => {
+      return [...entries].sort((left, right) => {
+        return raritySortRank(left.rarity) - raritySortRank(right.rarity)
+          || compareUiText(left.rarity, right.rarity)
+          || compareUiText(left.name, right.name)
+          || compareUiText(left.baseCharacterName, right.baseCharacterName);
+      });
+    };
     const CosmeticCard = ({ entry, accentColor = 'var(--accent)', focused = false, onOpen }) => {
       if (!entry) return null;
-      const isCharacterSwap = entry.groupKey !== 'fullSet';
-      const collectionLabel = entry.collectionName || entry.rarity || (isCharacterSwap ? 'Character Swap' : 'Approved Full Set');
+      const isCharacterSwap = entry.isCharacterSwap === true || String(entry.outfitLinkMode || '').toLowerCase() === 'character_swap';
+      const outfitLinkMode = String(entry.outfitLinkMode || (isCharacterSwap ? 'character_swap' : 'unlinked')).toLowerCase();
+      const boundSlotsLabel = entry.bindSummary || (Array.isArray(entry.boundSlots) ? entry.boundSlots.join(' + ') : '');
+      const collectionLabel = isCharacterSwap
+        ? (entry.groupLabel || 'Character swaps')
+        : (entry.collectionName || entry.sourceBucket || entry.groupLabel || 'Cosmetic');
+      const pieceLabel = entry.pieceType || (isCharacterSwap ? 'Outfit' : 'Cosmetic');
       const roleChipClasses = entry.baseCharacterType === 'Killer'
         ? 'bg-red-500/10 text-red-200 border-red-500/20'
         : 'bg-sky-500/10 text-sky-200 border-sky-500/20';
@@ -10639,17 +10831,36 @@
           </div>
           <div className="p-3.5 space-y-3">
             <div className="flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={badgeStyle}>
-                {entry.groupLabel}
-              </span>
+              {isCharacterSwap ? (
+                <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20">
+                  Character swaps
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={badgeStyle}>
+                  {pieceLabel}
+                </span>
+              )}
               <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${roleChipClasses}`}>
                 {entry.baseCharacterType}
               </span>
+              {!isCharacterSwap && pieceLabel === 'Outfit' && (
+                <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${getOutfitLinkModeChipClasses(outfitLinkMode)}`}>
+                  {getOutfitLinkModeLabel(outfitLinkMode)}
+                </span>
+              )}
+              {entry.rarity && (
+                <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] bg-white/5 text-zinc-200 border-white/10">
+                  {entry.rarity}
+                </span>
+              )}
             </div>
             <div>
               <p className="text-white text-sm font-bold leading-tight">{entry.name}</p>
               <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500 mt-1">{entry.baseCharacterName}</p>
               <p className="text-xs text-zinc-400 mt-2 leading-snug">{collectionLabel}</p>
+              {!isCharacterSwap && boundSlotsLabel && pieceLabel === 'Outfit' && (
+                <p className="text-[11px] text-zinc-500 mt-1">Binds: {boundSlotsLabel}</p>
+              )}
             </div>
             {focused && (
               <p className="text-[10px] uppercase tracking-[0.18em] font-bold" style={{ color: accentColor }}>
@@ -10668,33 +10879,57 @@
         </div>
       );
     };
-    const CosmeticsView = ({ onBack, cosmeticsCatalog = { characterSwaps: [], fullSets: [] }, onOpenCosmetic, initialTab = 'characterSwaps' }) => {
-      const [activeTab, setActiveTab] = useState(initialTab === 'fullSets' ? 'fullSets' : 'characterSwaps');
+    const CosmeticsView = ({ onBack, cosmeticsCatalog = { characterSwaps: [], fullSets: [] }, onOpenCosmetic }) => {
       const [search, setSearch] = useState('');
-      const [roleFilter, setRoleFilter] = useState('All');
-      const [sortMode, setSortMode] = useState('name');
-
-      useEffect(() => {
-        setActiveTab(initialTab === 'fullSets' ? 'fullSets' : 'characterSwaps');
-      }, [initialTab]);
+      const [roleFilter, setRoleFilter] = useState('Killer');
+      const [characterFilter, setCharacterFilter] = useState('__all__');
 
       const readyCharacterSwaps = useMemo(
-        () => (Array.isArray(cosmeticsCatalog.characterSwaps) ? cosmeticsCatalog.characterSwaps.filter((entry) => entry.status === 'ready') : []),
+        () => (Array.isArray(cosmeticsCatalog.characterSwaps)
+          ? cosmeticsCatalog.characterSwaps.filter((entry) => entry.status === 'ready').map((entry) => ({ ...entry, isCharacterSwap: true }))
+          : []),
         [cosmeticsCatalog]
       );
-      const readyFullSets = useMemo(
-        () => (Array.isArray(cosmeticsCatalog.fullSets) ? cosmeticsCatalog.fullSets.filter((entry) => entry.status === 'ready') : []),
+      const readyCosmeticEntries = useMemo(
+        () => (Array.isArray(cosmeticsCatalog.fullSets)
+          ? cosmeticsCatalog.fullSets.filter((entry) => entry.status === 'ready').map((entry) => ({ ...entry, isCharacterSwap: Boolean(entry.isCharacterSwap) }))
+          : []),
         [cosmeticsCatalog]
       );
+      const readyCosmetics = useMemo(() => [...readyCharacterSwaps, ...readyCosmeticEntries], [readyCharacterSwaps, readyCosmeticEntries]);
+      const roleCharacters = useMemo(() => {
+        const grouped = readyCosmetics
+          .filter((entry) => entry.baseCharacterType === roleFilter)
+          .reduce((acc, entry) => {
+            if (!acc[entry.baseCharacterId]) acc[entry.baseCharacterId] = entry.baseCharacterName;
+            return acc;
+          }, {});
+        return Object.entries(grouped)
+          .map(([id, name]) => ({ id, name }))
+          .sort((left, right) => compareUiText(left.name, right.name));
+      }, [readyCosmetics, roleFilter]);
+
+      useEffect(() => {
+        if (characterFilter === '__all__') return;
+        if (!roleCharacters.some((character) => character.id === characterFilter)) {
+          setCharacterFilter('__all__');
+        }
+      }, [characterFilter, roleCharacters]);
+
       const matchesQuery = (entry, term) => {
         if (!term) return true;
         const haystack = [
           entry.name,
           entry.baseCharacterName,
           entry.groupLabel,
+          entry.pieceType,
+          entry.sourceBucket,
           entry.collectionName,
           entry.rarity,
+          entry.outfitLinkMode,
+          entry.bindSummary,
           entry.description,
+          ...(entry.boundSlots || []),
           ...(entry.aliases || [])
         ]
           .filter(Boolean)
@@ -10702,64 +10937,32 @@
           .toLowerCase();
         return haystack.includes(term);
       };
-      const matchesRole = (entry) => roleFilter === 'All' || entry.baseCharacterType === roleFilter;
-      const sortEntries = useCallback((entries = []) => {
-        return [...entries].sort((left, right) => {
-          if (sortMode === 'base') {
-            return compareUiText(left.baseCharacterName, right.baseCharacterName)
-              || compareUiText(left.name, right.name)
-              || compareUiText(left.collectionName || left.groupLabel, right.collectionName || right.groupLabel);
-          }
-          if (sortMode === 'collection') {
-            return compareUiText(left.collectionName || left.groupLabel || left.rarity, right.collectionName || right.groupLabel || right.rarity)
-              || compareUiText(left.baseCharacterName, right.baseCharacterName)
-              || compareUiText(left.name, right.name);
-          }
-          return compareUiText(left.name, right.name)
-            || compareUiText(left.baseCharacterName, right.baseCharacterName)
-            || compareUiText(left.collectionName || left.groupLabel, right.collectionName || right.groupLabel);
-        });
-      }, [sortMode]);
-
-      const filteredCharacterSwaps = useMemo(() => {
+      const filteredCosmetics = useMemo(() => {
         const term = search.trim().toLowerCase();
-        return sortEntries(readyCharacterSwaps.filter((entry) => matchesRole(entry) && matchesQuery(entry, term)));
-      }, [readyCharacterSwaps, roleFilter, search, sortEntries]);
-      const filteredFullSets = useMemo(() => {
-        const term = search.trim().toLowerCase();
-        return sortEntries(readyFullSets.filter((entry) => matchesRole(entry) && matchesQuery(entry, term)));
-      }, [readyFullSets, roleFilter, search, sortEntries]);
-      const groupedCharacterSwaps = useMemo(() => {
-        const order = ['Legendary', 'Costume', 'Ultra Rare'];
-        return order
-          .map((label) => ({
-            label,
-            entries: filteredCharacterSwaps.filter((entry) => entry.groupLabel === label)
-          }))
-          .filter((group) => group.entries.length > 0);
-      }, [filteredCharacterSwaps]);
-      const groupedFullSets = useMemo(() => {
-        const groups = filteredFullSets.reduce((acc, entry) => {
-          const key = entry.collectionName || entry.rarity || 'Other';
+        return sortCosmeticsByRarity(
+          readyCosmetics.filter((entry) => {
+            if (entry.baseCharacterType !== roleFilter) return false;
+            if (characterFilter !== '__all__' && entry.baseCharacterId !== characterFilter) return false;
+            return matchesQuery(entry, term);
+          })
+        );
+      }, [readyCosmetics, roleFilter, characterFilter, search]);
+      const groupedByRarity = useMemo(() => {
+        const buckets = filteredCosmetics.reduce((acc, entry) => {
+          const key = entry.rarity || 'Unknown';
           if (!acc[key]) acc[key] = [];
           acc[key].push(entry);
           return acc;
         }, {});
-        return Object.entries(groups)
-          .map(([label, entries]) => ({ label, entries: sortEntries(entries) }))
-          .sort((a, b) => compareUiText(a.label, b.label));
-      }, [filteredFullSets, sortEntries]);
-      const visibleCount = activeTab === 'characterSwaps' ? filteredCharacterSwaps.length : filteredFullSets.length;
-      const statsCards = [
-        { label: 'Ready', value: readyCharacterSwaps.length + readyFullSets.length, hint: 'bundled cosmetics' },
-        { label: 'Character Swaps', value: readyCharacterSwaps.length, hint: 'Legendary / Costume / Ultra Rare' },
-        { label: 'Full Sets', value: readyFullSets.length, hint: 'approved local outfit icons' },
-        { label: 'Showing', value: visibleCount, hint: 'after filters' }
-      ];
+        return Object.entries(buckets)
+          .map(([label, entries]) => ({ label, entries: sortCosmeticsByRarity(entries) }))
+          .sort((left, right) => raritySortRank(left.label) - raritySortRank(right.label) || compareUiText(left.label, right.label));
+      }, [filteredCosmetics]);
+      const characterSwapCount = readyCosmetics.filter((entry) => entry.isCharacterSwap).length;
 
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar" data-smoke-cosmetics="true">
-          <Header title="Legendary Characters" subtitle={`${readyCharacterSwaps.length} character swaps • ${readyFullSets.length} full sets`} onBack={onBack} infoTips={VIEW_TIPS.cosmetics} />
+          <Header title="Cosmetics" subtitle={`${readyCosmetics.length} cosmetics • ${characterSwapCount} character swaps`} onBack={onBack} infoTips={VIEW_TIPS.cosmetics} />
           <div className="sticky top-0 z-20 -mx-6 px-6 pb-4 pointer-events-none">
             <div className="relative max-w-5xl mx-auto pointer-events-auto">
               <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-xl border border-white/10 rounded-3xl p-2 shadow-2xl">
@@ -10767,7 +10970,7 @@
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search cosmetics, collections, or characters..."
+                  placeholder="Search cosmetics, rarity, piece type, or character..."
                   className="w-full bg-transparent text-white p-3 text-sm font-medium placeholder-zinc-600 focus:outline-none"
                 />
                 {search && (
@@ -10778,41 +10981,35 @@
               </div>
             </div>
           </div>
-          <div className="max-w-5xl mx-auto space-y-4 mb-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-              {statsCards.map((card) => (
-                <div key={card.label} className="rounded-2xl border border-white/8 bg-zinc-900/45 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">{card.label}</p>
-                  <p className="text-xl font-bold text-white mt-2">{card.value}</p>
-                  <p className="text-[11px] text-zinc-500 mt-1">{card.hint}</p>
-                </div>
+          <div className="max-w-5xl mx-auto space-y-3 mb-4">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-[0.18em]">Role</span>
+              {['Killer', 'Survivor'].map((role) => (
+                <GlassButton key={role} active={roleFilter === role} onClick={() => setRoleFilter(role)} className="text-xs py-2 px-3">{role}</GlassButton>
               ))}
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <GlassButton active={activeTab === 'characterSwaps'} onClick={() => setActiveTab('characterSwaps')} className="text-xs py-2 px-3">Character Swaps</GlassButton>
-              <GlassButton active={activeTab === 'fullSets'} onClick={() => setActiveTab('fullSets')} className="text-xs py-2 px-3">Full Sets</GlassButton>
-              {['All', 'Killer', 'Survivor'].map((role) => (
-                <GlassButton key={role} active={roleFilter === role} onClick={() => setRoleFilter(role)} className="text-xs py-2 px-3">{role}</GlassButton>
-              ))}
-              <div className="min-w-[160px]">
-                <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="themed-select w-full text-xs">
-                  <option value="name">Sort: Name A–Z</option>
-                  <option value="base">Sort: Base Character</option>
-                  <option value="collection">Sort: Collection / Group</option>
+              <span className="text-[10px] text-zinc-500 uppercase tracking-[0.18em]">Character</span>
+              <div className="min-w-[250px]">
+                <select value={characterFilter} onChange={(e) => setCharacterFilter(e.target.value)} className="themed-select w-full text-xs">
+                  <option value="__all__">{roleFilter === 'Killer' ? 'All killer cosmetics' : 'All survivor cosmetics'}</option>
+                  {roleCharacters.map((character) => (
+                    <option key={character.id} value={character.id}>{character.name}</option>
+                  ))}
                 </select>
               </div>
               <span className="text-[11px] text-zinc-500 uppercase tracking-[0.18em] self-center">
-                {visibleCount} shown
+                {filteredCosmetics.length} shown • sorted by rarity
               </span>
             </div>
           </div>
           <div className="max-w-5xl mx-auto pb-32 space-y-6">
-            {activeTab === 'characterSwaps' && groupedCharacterSwaps.map((group) => (
+            {groupedByRarity.map((group) => (
               <section key={group.label} className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">{group.label}</p>
-                    <p className="text-xs text-zinc-500 mt-1">Character-swap cosmetics for base roster characters.</p>
+                    <p className="text-xs text-zinc-500 mt-1">{roleFilter} cosmetics sorted by rarity.</p>
                   </div>
                   <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">{group.entries.length}</span>
                 </div>
@@ -10824,51 +11021,626 @@
               </section>
             ))}
 
-            {activeTab === 'fullSets' && groupedFullSets.map((group) => (
-              <section key={group.label} className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">{group.label}</p>
-                    <p className="text-xs text-zinc-500 mt-1">Approved official outfit icons grouped by collection.</p>
-                  </div>
-                  <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">{group.entries.length}</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {group.entries.map((entry) => (
-                    <CosmeticCard key={entry.id} entry={entry} onOpen={onOpenCosmetic} />
-                  ))}
-                </div>
-              </section>
-            ))}
-
-            {activeTab === 'characterSwaps' && groupedCharacterSwaps.length === 0 && (
+            {groupedByRarity.length === 0 && (
               <div className="text-center py-12">
                 <Icons.Image width={36} height={36} className="mx-auto text-zinc-700 mb-3" />
-                <p className="text-zinc-500 text-sm">No character swaps match the current filters.</p>
-                <p className="text-zinc-600 text-xs mt-2">Try a broader role filter or clear the current search.</p>
-              </div>
-            )}
-            {activeTab === 'fullSets' && groupedFullSets.length === 0 && (
-              <div className="text-center py-12">
-                <Icons.Image width={36} height={36} className="mx-auto text-zinc-700 mb-3" />
-                <p className="text-zinc-500 text-sm">No full sets match the current filters.</p>
-                <p className="text-zinc-600 text-xs mt-2">Try a different search term, collection, or role filter.</p>
+                <p className="text-zinc-500 text-sm">No cosmetics match the current filters.</p>
+                <p className="text-zinc-600 text-xs mt-2">Try selecting all characters or clearing the search query.</p>
               </div>
             )}
           </div>
         </div>
       );
     };
-    const QuotesView = ({ onBack }) => (
-      <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
-        <Header title="Best Quotes" subtitle="Memorable lines" onBack={onBack} />
-        <div className="pb-32 -mx-6 px-6 space-y-3">
-          <div className="p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-md text-zinc-300 text-sm">
-            To be implemented later.
+    const CommunityContentView = ({ onBack, communityContent }) => {
+      const [activeTab, setActiveTab] = useState('addons');
+      const [addonSearch, setAddonSearch] = useState('');
+      const [selectedKillerKey, setSelectedKillerKey] = useState('');
+      const [buildRole, setBuildRole] = useState('killers');
+      const [selectedBuildProfileId, setSelectedBuildProfileId] = useState('');
+      const [selectedBuildPerkName, setSelectedBuildPerkName] = useState('');
+      const [characterRole, setCharacterRole] = useState('killer');
+      const [characterSearch, setCharacterSearch] = useState('');
+      const [academySearch, setAcademySearch] = useState('');
+      const [tierlistSearch, setTierlistSearch] = useState('');
+      const [tierlistCategory, setTierlistCategory] = useState('all');
+      const [guideSearch, setGuideSearch] = useState('');
+      const [guideSourceType, setGuideSourceType] = useState('all');
+
+      const toLookupKey = (value) => String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
+      const tabOptions = [
+        { id: 'addons', label: 'Addon Tierlist' },
+        { id: 'builds', label: 'Builds' },
+        { id: 'characters', label: 'Character Intel' },
+        { id: 'academy', label: 'Academy' },
+        { id: 'tierlists', label: 'Tierlists' },
+        { id: 'guideVault', label: 'Guide Vault' }
+      ];
+
+      const addonKillers = useMemo(
+        () => (Array.isArray(communityContent?.addonTierlist?.killers) ? communityContent.addonTierlist.killers : []),
+        [communityContent]
+      );
+
+      useEffect(() => {
+        if (addonKillers.length === 0) {
+          setSelectedKillerKey('');
+          return;
+        }
+        const hasSelection = addonKillers.some((killer) => (killer.killerSlug || killer.killerName) === selectedKillerKey);
+        if (!hasSelection) {
+          setSelectedKillerKey(addonKillers[0].killerSlug || addonKillers[0].killerName || '');
+        }
+      }, [addonKillers, selectedKillerKey]);
+
+      const activeKiller = useMemo(
+        () => addonKillers.find((killer) => (killer.killerSlug || killer.killerName) === selectedKillerKey) || null,
+        [addonKillers, selectedKillerKey]
+      );
+
+      const filteredAddons = useMemo(() => {
+        if (!activeKiller || !Array.isArray(activeKiller.addons)) return [];
+        const term = addonSearch.trim().toLowerCase();
+        if (!term) return activeKiller.addons;
+        return activeKiller.addons.filter((addon) => {
+          const haystack = [addon.name, addon.otzComment, addon.description].join(' ').toLowerCase();
+          return haystack.includes(term);
+        });
+      }, [activeKiller, addonSearch]);
+
+      const activeKillerCombos = useMemo(
+        () => (Array.isArray(activeKiller?.combos) ? activeKiller.combos : []),
+        [activeKiller]
+      );
+
+      const beginnerGuidesEntries = useMemo(
+        () => (Array.isArray(communityContent?.beginnerGuides?.entries) ? communityContent.beginnerGuides.entries : []),
+        [communityContent]
+      );
+
+      const filteredBeginnerGuides = useMemo(() => {
+        const term = academySearch.trim().toLowerCase();
+        if (!term) return beginnerGuidesEntries;
+        return beginnerGuidesEntries.filter((entry) => {
+          const haystack = [entry.title, entry.description].join(' ').toLowerCase();
+          return haystack.includes(term);
+        });
+      }, [beginnerGuidesEntries, academySearch]);
+
+      const tierlistEntries = useMemo(
+        () => (Array.isArray(communityContent?.tierlists?.entries) ? communityContent.tierlists.entries : []),
+        [communityContent]
+      );
+
+      const tierlistCategoryOptions = useMemo(() => {
+        const values = [...new Set(tierlistEntries.map((entry) => String(entry.categoryLabel || entry.category || '').trim()).filter(Boolean))];
+        return values.sort((a, b) => a.localeCompare(b));
+      }, [tierlistEntries]);
+
+      const filteredTierlists = useMemo(() => {
+        const term = tierlistSearch.trim().toLowerCase();
+        return tierlistEntries.filter((entry) => {
+          if (tierlistCategory !== 'all' && String(entry.categoryLabel || entry.category || '') !== tierlistCategory) {
+            return false;
+          }
+          if (!term) return true;
+          const haystack = [entry.title, entry.description, entry.patch, entry.dateLabel].join(' ').toLowerCase();
+          return haystack.includes(term);
+        });
+      }, [tierlistEntries, tierlistCategory, tierlistSearch]);
+
+      const tierlistComparisons = useMemo(() => {
+        const grouped = tierlistEntries.reduce((accumulator, entry) => {
+          const categoryLabel = String(entry.categoryLabel || entry.category || 'General');
+          if (!accumulator[categoryLabel]) accumulator[categoryLabel] = [];
+          accumulator[categoryLabel].push(entry);
+          return accumulator;
+        }, {});
+
+        return Object.entries(grouped)
+          .map(([categoryLabel, entries]) => {
+            const ordered = [...entries].sort((a, b) => {
+              if (a.dateIso && b.dateIso) return b.dateIso.localeCompare(a.dateIso);
+              if (a.dateIso) return -1;
+              if (b.dateIso) return 1;
+              return String(a.title || '').localeCompare(String(b.title || ''));
+            });
+            return {
+              categoryLabel,
+              latest: ordered[0] || null,
+              previous: ordered[1] || null
+            };
+          })
+          .sort((a, b) => a.categoryLabel.localeCompare(b.categoryLabel));
+      }, [tierlistEntries]);
+
+      const buildProfiles = useMemo(() => {
+        if (buildRole === 'survivors') {
+          return Array.isArray(communityContent?.builds?.roles?.survivors) ? communityContent.builds.roles.survivors : [];
+        }
+        return Array.isArray(communityContent?.builds?.roles?.killers) ? communityContent.builds.roles.killers : [];
+      }, [communityContent, buildRole]);
+
+      const perkDetailsByRole = useMemo(() => {
+        const fallback = { killers: [], survivors: [] };
+        const raw = communityContent?.builds?.perkDetails;
+        if (!raw || typeof raw !== 'object') return fallback;
+        return {
+          killers: Array.isArray(raw.killers) ? raw.killers : [],
+          survivors: Array.isArray(raw.survivors) ? raw.survivors : []
+        };
+      }, [communityContent]);
+
+      const activePerkDetails = useMemo(
+        () => (buildRole === 'survivors' ? perkDetailsByRole.survivors : perkDetailsByRole.killers),
+        [buildRole, perkDetailsByRole]
+      );
+
+      const activePerkDetailsLookup = useMemo(() => {
+        const map = new Map();
+        activePerkDetails.forEach((entry) => {
+          const key = toLookupKey(entry?.name || entry?.key);
+          if (!key || map.has(key)) return;
+          map.set(key, entry);
+        });
+        return map;
+      }, [activePerkDetails]);
+
+      useEffect(() => {
+        if (buildProfiles.length === 0) {
+          setSelectedBuildProfileId('');
+          return;
+        }
+        const hasSelection = buildProfiles.some((profile) => profile.id === selectedBuildProfileId);
+        if (!hasSelection) {
+          setSelectedBuildProfileId(buildProfiles[0].id || '');
+        }
+      }, [buildProfiles, selectedBuildProfileId]);
+
+      useEffect(() => {
+        setSelectedBuildPerkName('');
+      }, [buildRole, selectedBuildProfileId]);
+
+      const activeBuildProfile = useMemo(
+        () => buildProfiles.find((profile) => profile.id === selectedBuildProfileId) || null,
+        [buildProfiles, selectedBuildProfileId]
+      );
+
+      const selectedBuildPerkDetails = useMemo(
+        () => activePerkDetailsLookup.get(toLookupKey(selectedBuildPerkName)) || null,
+        [activePerkDetailsLookup, selectedBuildPerkName]
+      );
+
+      const characterEntries = useMemo(() => {
+        if (characterRole === 'survivor') {
+          return Array.isArray(communityContent?.characterInfo?.survivors) ? communityContent.characterInfo.survivors : [];
+        }
+        return Array.isArray(communityContent?.characterInfo?.killers) ? communityContent.characterInfo.killers : [];
+      }, [communityContent, characterRole]);
+
+      const visibleCharacters = useMemo(() => {
+        const term = characterSearch.trim().toLowerCase();
+        const withSearch = !term
+          ? characterEntries
+          : characterEntries.filter((entry) => {
+            const haystack = [entry.name, entry.otzComment, entry.availableIn].join(' ').toLowerCase();
+            return haystack.includes(term);
+          });
+        return [...withSearch].sort((a, b) => {
+          const aPriority = Number.isFinite(Number(a.unlockPriority)) ? Number(a.unlockPriority) : -1;
+          const bPriority = Number.isFinite(Number(b.unlockPriority)) ? Number(b.unlockPriority) : -1;
+          return bPriority - aPriority;
+        });
+      }, [characterEntries, characterSearch]);
+
+      const guideVaultEntries = useMemo(
+        () => (Array.isArray(communityContent?.guideVault?.entries) ? communityContent.guideVault.entries : []),
+        [communityContent]
+      );
+
+      const guideSourceTypeOptions = useMemo(() => {
+        const values = new Set();
+        guideVaultEntries.forEach((entry) => {
+          const type = String(entry.sourceType || '').trim();
+          if (type) values.add(type);
+        });
+        return [...values].sort((a, b) => a.localeCompare(b));
+      }, [guideVaultEntries]);
+
+      const filteredGuideVaultEntries = useMemo(() => {
+        const term = guideSearch.trim().toLowerCase();
+        return guideVaultEntries.filter((entry) => {
+          if (guideSourceType !== 'all' && String(entry.sourceType || '') !== guideSourceType) return false;
+          if (!term) return true;
+          const haystack = [entry.label, entry.context, entry.url, entry.host].join(' ').toLowerCase();
+          return haystack.includes(term);
+        });
+      }, [guideVaultEntries, guideSourceType, guideSearch]);
+
+      const getTierStyle = (tierBucket) => {
+        const bucket = String(tierBucket || '').toLowerCase();
+        if (bucket === 'strongest') return { color: '#f43f5e', borderColor: 'rgba(244,63,94,0.35)' };
+        if (bucket === 'good') return { color: '#f97316', borderColor: 'rgba(249,115,22,0.35)' };
+        if (bucket === 'decent') return { color: '#22c55e', borderColor: 'rgba(34,197,94,0.35)' };
+        if (bucket === 'almost-no-effect') return { color: '#64748b', borderColor: 'rgba(100,116,139,0.35)' };
+        if (bucket === 'detrimental') return { color: '#ef4444', borderColor: 'rgba(239,68,68,0.35)' };
+        return { color: '#94a3b8', borderColor: 'rgba(148,163,184,0.35)' };
+      };
+
+      const links = useMemo(() => {
+        const defaults = [
+          { label: 'Otzdarva Home', url: 'https://otzdarva.com/' },
+          { label: 'DBD Character Info', url: 'https://otzdarva.com/dbd/character-info' },
+          { label: 'Addon Tierlist', url: 'https://otz-addon-tierlist.pages.dev/' },
+          { label: 'Builds', url: 'https://otzdarva-builds.com/' }
+        ];
+        const sourceLinks = Array.isArray(communityContent?.links) ? communityContent.links : [];
+        const merged = [...defaults, ...sourceLinks];
+        const seen = new Set();
+        return merged.filter((entry) => {
+          const url = String(entry?.url || '').trim();
+          if (!url || seen.has(url)) return false;
+          seen.add(url);
+          return true;
+        }).slice(0, 10);
+      }, [communityContent]);
+
+      const getTierlistFreshness = (entry) => {
+        if (!entry?.dateIso) return { label: 'Undated', color: 'text-zinc-400' };
+        const ageDays = Math.floor((Date.now() - new Date(entry.dateIso).getTime()) / (1000 * 60 * 60 * 24));
+        if (ageDays <= 120) return { label: 'Fresh', color: 'text-emerald-400' };
+        if (ageDays <= 365) return { label: 'Aging', color: 'text-amber-400' };
+        return { label: 'Legacy', color: 'text-zinc-400' };
+      };
+
+      const getTierlistAgeLabel = (entry) => {
+        if (!entry?.dateIso) return 'unknown age';
+        const ageDays = Math.floor((Date.now() - new Date(entry.dateIso).getTime()) / (1000 * 60 * 60 * 24));
+        if (ageDays < 31) return `${ageDays}d old`;
+        if (ageDays < 365) return `${Math.floor(ageDays / 30)}mo old`;
+        return `${Math.floor(ageDays / 365)}y old`;
+      };
+
+      return (
+        <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
+          <Header title="Community Content" subtitle="Guides, builds, and tierlists" onBack={onBack} infoTips={VIEW_TIPS.communitycontent} />
+          <div className="max-w-5xl mx-auto w-full pb-32 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {tabOptions.map((tab) => (
+                <GlassButton key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="text-xs py-2 px-3">
+                  {tab.label}
+                </GlassButton>
+              ))}
+            </div>
+
+            {activeTab === 'addons' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <select value={selectedKillerKey} onChange={(event) => setSelectedKillerKey(event.target.value)} className="themed-select min-w-[220px] text-xs">
+                    {addonKillers.map((killer) => {
+                      const key = killer.killerSlug || killer.killerName;
+                      return <option key={key} value={key}>{killer.localKillerName || killer.killerName}</option>;
+                    })}
+                  </select>
+                  <input
+                    value={addonSearch}
+                    onChange={(event) => setAddonSearch(event.target.value)}
+                    placeholder="Search addon or comment"
+                    className="flex-1 min-w-[200px] bg-zinc-800/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+                  />
+                </div>
+                {activeKillerCombos.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 font-bold">Recommended Addon Combos</p>
+                    <div className="mt-2 space-y-2">
+                      {activeKillerCombos.map((combo, comboIndex) => (
+                        <div key={`${combo.tier}-${comboIndex}`} className="rounded-xl border border-white/10 bg-white/[0.02] px-2 py-2">
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">{combo.label || 'Combo'}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {(combo.addons || []).map((comboAddon, addonIndex) => (
+                              <div key={`${combo.label || 'combo'}-${comboAddon.rank}-${addonIndex}`} className="flex items-center gap-2">
+                                {addonIndex > 0 && <span className="text-zinc-600 text-xs font-bold">+</span>}
+                                <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-black/20 border border-white/10">
+                                  <div className="w-8 h-8 rounded-md bg-zinc-950/70 border border-white/10 overflow-hidden shrink-0">
+                                    <AssetFrame
+                                      type="Addon"
+                                      size="fill"
+                                      imageUrl={comboAddon?.localMatch?.localImage || ''}
+                                      fallbackIcon={<Icons.Package width={12} height={12} className="text-zinc-600" />}
+                                    />
+                                  </div>
+                                  <span className="text-[11px] text-zinc-200">{comboAddon.name}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {filteredAddons.map((addon) => {
+                    const tierStyle = getTierStyle(addon.tierBucket);
+                    return (
+                      <div key={`${addon.rank}-${addon.name}`} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                        <div className="flex items-start gap-3">
+                          <div className="w-11 h-11 rounded-lg bg-zinc-950/70 border border-white/10 overflow-hidden shrink-0">
+                            <AssetFrame
+                              type="Addon"
+                              size="fill"
+                              imageUrl={addon?.localMatch?.localImage || ''}
+                              fallbackIcon={<Icons.Package width={14} height={14} className="text-zinc-600" />}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[10px] text-zinc-500 font-bold w-7">#{addon.rank}</span>
+                                <p className="text-sm font-semibold text-white truncate">{addon.name}</p>
+                                <span className="px-2 py-0.5 rounded-md border text-[10px] uppercase tracking-wider" style={tierStyle}>{String(addon.tierBucket || 'unknown').replace(/-/g, ' ')}</span>
+                              </div>
+                            </div>
+                            {addon.otzComment && <p className="text-xs text-zinc-300 mt-2 leading-relaxed break-words whitespace-normal">{addon.otzComment}</p>}
+                            {addon.description && <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed break-words whitespace-normal">{addon.description}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredAddons.length === 0 && (
+                    <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10 text-zinc-500 text-sm">No addon entries match the current filters.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'builds' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <GlassButton active={buildRole === 'killers'} onClick={() => setBuildRole('killers')} className="text-xs py-2 px-3">Killers</GlassButton>
+                  <GlassButton active={buildRole === 'survivors'} onClick={() => setBuildRole('survivors')} className="text-xs py-2 px-3">Survivors</GlassButton>
+                  <select value={selectedBuildProfileId} onChange={(event) => setSelectedBuildProfileId(event.target.value)} className="themed-select min-w-[220px] text-xs">
+                    {buildProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                  </select>
+                </div>
+                {activeBuildProfile ? (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                      <p className="text-white font-semibold text-sm">{activeBuildProfile.name}</p>
+                      <p className="text-[11px] text-zinc-500 mt-1">{activeBuildProfile.buildCount} builds • Featured: {activeBuildProfile.featuredBuildName || 'n/a'}</p>
+                    </div>
+                    {activeBuildProfile.builds.map((build) => (
+                      <div key={build.name} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10 space-y-2">
+                        <p className="text-white font-semibold text-sm">{build.name}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(build.perks || []).map((perk) => (
+                            <button
+                              key={`${build.name}-${perk.name}`}
+                              onClick={() => setSelectedBuildPerkName(perk.name)}
+                              className={`px-2 py-1 rounded-lg border text-[10px] uppercase tracking-wider transition-colors ${selectedBuildPerkName === perk.name ? 'bg-amber-500/20 border-amber-400/40 text-amber-200' : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white'}`}
+                            >
+                              {perk.name}
+                            </button>
+                          ))}
+                        </div>
+                        {(build.details || []).length > 0 && (
+                          <div className="space-y-1">
+                            {build.details.map((detail, index) => (
+                              <p key={`${build.name}-detail-${index}`} className="text-[11px] text-zinc-500 leading-relaxed">• {detail}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {selectedBuildPerkName && (
+                      <div className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10 space-y-2">
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">Perk Deep Dive</p>
+                        {selectedBuildPerkDetails ? (
+                          <>
+                            <p className="text-white font-semibold text-sm">{selectedBuildPerkDetails.name}</p>
+                            <p className="text-[11px] text-zinc-500">Obtained from: {selectedBuildPerkDetails.obtainedFrom || 'Unknown'}</p>
+                            <p className="text-xs text-zinc-300 leading-relaxed break-words whitespace-normal">{selectedBuildPerkDetails.descriptionText || 'No perk description available in this snapshot.'}</p>
+                            {(selectedBuildPerkDetails.links || []).length > 0 && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {selectedBuildPerkDetails.links.map((link) => (
+                                  <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300 hover:text-white transition-colors">
+                                    {link.label || 'Wiki Source'}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-zinc-500">No detailed entry was found for this perk in the current role dataset.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10 text-zinc-500 text-sm">No build profiles were found for this role.</div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'characters' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <GlassButton active={characterRole === 'killer'} onClick={() => setCharacterRole('killer')} className="text-xs py-2 px-3">Killers</GlassButton>
+                  <GlassButton active={characterRole === 'survivor'} onClick={() => setCharacterRole('survivor')} className="text-xs py-2 px-3">Survivors</GlassButton>
+                  <input
+                    value={characterSearch}
+                    onChange={(event) => setCharacterSearch(event.target.value)}
+                    placeholder="Search character"
+                    className="flex-1 min-w-[220px] bg-zinc-800/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[11px] text-zinc-500">Sorted from most important to least important.</p>
+                  {visibleCharacters.map((entry, index) => (
+                    <div key={entry.id || entry.name} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm text-white font-semibold">{entry.name}</p>
+                        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">
+                          Rank #{index + 1}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mt-1">{entry.cost || 'No cost data'}{entry.availableIn ? ` • ${entry.availableIn}` : ''}</p>
+                      {(entry.perks || []).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {entry.perks.slice(0, 4).map((perk) => (
+                            <span key={`${entry.id}-${perk.id}`} className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300 uppercase tracking-wider">
+                              {perk.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {visibleCharacters.length === 0 && (
+                    <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10 text-zinc-500 text-sm">No character entries match the current filters.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'academy' && (
+              <div className="space-y-3">
+                <input
+                  value={academySearch}
+                  onChange={(event) => setAcademySearch(event.target.value)}
+                  placeholder="Search beginner guides"
+                  className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+                />
+                <div className="space-y-2">
+                  {filteredBeginnerGuides.map((entry) => (
+                    <div key={entry.id} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm text-white font-semibold">{entry.title}</p>
+                        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">{entry.sourceType || 'resource'}</span>
+                      </div>
+                      {entry.description && <p className="text-xs text-zinc-300 mt-2 leading-relaxed break-words whitespace-normal">{entry.description}</p>}
+                      {entry.url && (
+                        <a href={entry.url} target="_blank" rel="noreferrer" className="inline-flex mt-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition-colors">
+                          Open Guide
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                  {filteredBeginnerGuides.length === 0 && (
+                    <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10 text-zinc-500 text-sm">No beginner guides match the current search.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'tierlists' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {tierlistComparisons.map((comparison) => (
+                    <div key={comparison.categoryLabel} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">{comparison.categoryLabel}</p>
+                      <p className="text-sm text-white mt-1">Latest: {comparison.latest?.title || 'n/a'}</p>
+                      <p className="text-[11px] text-zinc-500 mt-1">Previous: {comparison.previous?.title || 'none recorded'}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <select value={tierlistCategory} onChange={(event) => setTierlistCategory(event.target.value)} className="themed-select min-w-[220px] text-xs">
+                    <option value="all">All Categories</option>
+                    {tierlistCategoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                  <input
+                    value={tierlistSearch}
+                    onChange={(event) => setTierlistSearch(event.target.value)}
+                    placeholder="Search tierlists"
+                    className="flex-1 min-w-[200px] bg-zinc-800/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  {filteredTierlists.map((entry) => {
+                    const freshness = getTierlistFreshness(entry);
+                    return (
+                      <div key={entry.id} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm text-white font-semibold">{entry.title}</p>
+                          <span className={`text-[10px] uppercase tracking-wider ${freshness.color}`}>{freshness.label}</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-500 mt-1">{entry.categoryLabel} • {entry.patch || 'Patch n/a'} • {entry.dateLabel || 'Undated'} • {getTierlistAgeLabel(entry)}</p>
+                        {entry.description && <p className="text-xs text-zinc-300 mt-2 leading-relaxed break-words whitespace-normal">{entry.description}</p>}
+                        {entry.url && (
+                          <a href={entry.url} target="_blank" rel="noreferrer" className="inline-flex mt-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition-colors">
+                            Open Tierlist
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {filteredTierlists.length === 0 && (
+                    <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10 text-zinc-500 text-sm">No tierlists match the current filters.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'guideVault' && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <select value={guideSourceType} onChange={(event) => setGuideSourceType(event.target.value)} className="themed-select min-w-[220px] text-xs">
+                    <option value="all">All Source Types</option>
+                    {guideSourceTypeOptions.map((sourceType) => <option key={sourceType} value={sourceType}>{sourceType}</option>)}
+                  </select>
+                  <input
+                    value={guideSearch}
+                    onChange={(event) => setGuideSearch(event.target.value)}
+                    placeholder="Search guide vault"
+                    className="flex-1 min-w-[220px] bg-zinc-800/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  {filteredGuideVaultEntries.map((entry) => (
+                    <div key={entry.id} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm text-white font-semibold">{entry.label}</p>
+                        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">{entry.sourceType || 'resource'}</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mt-1">{entry.host || 'external resource'}</p>
+                      {entry.context && <p className="text-xs text-zinc-300 mt-2 leading-relaxed break-words whitespace-normal">{entry.context}</p>}
+                      {entry.url && (
+                        <a href={entry.url} target="_blank" rel="noreferrer" className="inline-flex mt-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition-colors">
+                          Open Resource
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                  {filteredGuideVaultEntries.length === 0 && (
+                    <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10 text-zinc-500 text-sm">No guide vault entries match the current filters.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {links.length > 0 && (
+              <div className="p-4 rounded-2xl bg-zinc-900/45 border border-white/10">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 font-bold">Open Otzdarva Resources</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {links.map((link) => (
+                    <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition-colors">
+                      {link.label || link.url}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </div>
-    );
+      );
+    };
     const FavoritesView = ({ onBack, settings, killers = [], survivors = [], perks = [], items = [], addons = [], offerings = [], toggleFavorite, setView, onPerkTap }) => {
       const [activeTab, setActiveTab] = useState('All');
       const tabs = ['All', 'Killers', 'Survivors', 'Perks', 'Items', 'Addons', 'Offerings'];
@@ -12221,7 +12993,7 @@
         setLayoutBroken(false);
       }, [currentIndex]);
       if (!map) return null;
-      const layouts = MAP_LAYOUTS[map.name] || [];
+      const layouts = getMapLayoutsForName(map.name);
       const hasMultiple = layouts.length > 1;
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={onClose}>
@@ -12467,7 +13239,7 @@
       const focusedCosmeticId = character.cosmeticFocusId || null;
       const characterSwapGroups = useMemo(() => {
         const groups = cosmeticsEntries
-          .filter((entry) => entry.groupKey !== 'fullSet')
+          .filter((entry) => entry.isCharacterSwap)
           .reduce((acc, entry) => {
             if (!acc[entry.groupLabel]) acc[entry.groupLabel] = [];
             acc[entry.groupLabel].push(entry);
@@ -12479,17 +13251,28 @@
       }, [cosmeticsEntries]);
       const fullSetGroups = useMemo(() => {
         const groups = cosmeticsEntries
-          .filter((entry) => entry.groupKey === 'fullSet')
+          .filter((entry) => !entry.isCharacterSwap)
           .reduce((acc, entry) => {
-            const key = entry.collectionName || entry.rarity || 'Other';
+            const key = entry.rarity || 'Other';
             if (!acc[key]) acc[key] = [];
             acc[key].push(entry);
             return acc;
           }, {});
         return Object.entries(groups)
           .map(([label, entries]) => ({ label, entries: entries.slice().sort((a, b) => a.name.localeCompare(b.name)) }))
-          .sort((a, b) => a.label.localeCompare(b.label));
+          .sort((a, b) => raritySortRank(a.label) - raritySortRank(b.label) || compareUiText(a.label, b.label));
       }, [cosmeticsEntries]);
+      const fullSetLinkStats = useMemo(() => (
+        cosmeticsEntries
+          .filter((entry) => !entry.isCharacterSwap)
+          .reduce((acc, entry) => {
+            const mode = String(entry.outfitLinkMode || 'unlinked').toLowerCase();
+            const key = ['linked', 'partially_linked', 'unlinked'].includes(mode) ? mode : 'unlinked';
+            acc[key] += 1;
+            return acc;
+          }, { linked: 0, partially_linked: 0, unlinked: 0 })
+      ), [cosmeticsEntries]);
+      const linkedFullSetCount = fullSetLinkStats.linked + fullSetLinkStats.partially_linked;
 
       const releaseInfo = useMemo(() => {
         if (typeof TIMELINE_DATA === 'undefined') return null;
@@ -12642,7 +13425,7 @@
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: accentColor }}>Character Cosmetics</p>
-                            <p className="text-xs text-zinc-500 mt-1">Character swaps and approved full sets linked to this character.</p>
+                            <p className="text-xs text-zinc-500 mt-1">Character swaps and all cosmetics linked to this character.</p>
                           </div>
                           <div className="flex flex-wrap justify-end gap-2">
                             <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-400">
@@ -12655,7 +13438,12 @@
                             )}
                             {fullSetGroups.length > 0 && (
                               <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-zinc-500">
-                                {fullSetGroups.reduce((total, group) => total + group.entries.length, 0)} full sets
+                                {fullSetGroups.reduce((total, group) => total + group.entries.length, 0)} cosmetics
+                              </span>
+                            )}
+                            {linkedFullSetCount > 0 && (
+                              <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] uppercase tracking-wider text-emerald-300">
+                                {linkedFullSetCount} linked outfits
                               </span>
                             )}
                           </div>
@@ -12843,6 +13631,10 @@
       const { killers = [], survivors = [], perks = [], maps = [], realms = [], items = [], offerings = [], addons = [] } = DATABASE;
       const cosmeticsCatalog = useMemo(
         () => normalizeCosmeticsCatalog(typeof COSMETICS_CATALOG === 'undefined' ? {} : COSMETICS_CATALOG),
+        []
+      );
+      const communityContent = useMemo(
+        () => normalizeCommunityContentSnapshot(typeof COMMUNITY_CONTENT === 'undefined' ? {} : COMMUNITY_CONTENT),
         []
       );
       const launchContext = useMemo(() => readLaunchContext(), []);
@@ -13231,7 +14023,7 @@
           case 'worldle':
             return <WorldleView onBack={() => setView('home')} killers={killers} perks={perks} worldleState={worldleState} setWorldleState={setWorldleState} isCompactLayout={device.width <= 640} />;
           case 'cosmetics':
-            return <CosmeticsView onBack={() => setView('home')} cosmeticsCatalog={cosmeticsCatalog} onOpenCosmetic={openCosmeticProfile} initialTab={viewContext.tab || 'characterSwaps'} />;
+            return <CosmeticsView onBack={() => setView('home')} cosmeticsCatalog={cosmeticsCatalog} onOpenCosmetic={openCosmeticProfile} />;
           case 'buildLab':
           case 'builds':
             return (
@@ -13263,7 +14055,9 @@
           case 'gameIcons': return <GameIconsView onBack={() => setView('home')} theme={theme} />;
           case 'items': return <ItemsView onBack={() => setView('home')} items={items} addons={visibleAddons} killers={visibleKillers} settings={settings} initialSearch={viewContext.search || ''} initialMode={viewContext.mode || 'survivor'} initialTargetId={viewContext.targetId || ''} initialTargetType={viewContext.targetType || ''} favoriteItems={settings.favoriteItems || []} favoriteAddons={settings.favoriteAddons || []} onToggleFavoriteItem={(id) => toggleFavorite('Item', id)} onToggleFavoriteAddon={(id) => toggleFavorite('Addon', id)} />;
           case 'offerings': return <OfferingsView onBack={() => setView('home')} offerings={offerings} initialSearch={viewContext.search || ''} initialTargetId={viewContext.targetId || ''} favoriteOfferings={settings.favoriteOfferings || []} onToggleFavoriteOffering={(id) => toggleFavorite('Offering', id)} />;
-          case 'quotes': return <QuotesView onBack={() => setView('home')} />;
+          case 'communityContent':
+          case 'quotes':
+            return <CommunityContentView onBack={() => setView('home')} communityContent={communityContent} />;
           case 'timeline': return <TimelineView onBack={() => setView('home')} setView={setView} killers={killers} survivors={survivors} theme={theme} />;
           case 'settings': return <SettingsView onBack={() => setView('home')} settings={settings} setSettings={setSettings} backupSummary={appBackupSummary} onCopyBackup={copyAppBackup} onDownloadBackup={downloadAppBackup} onRestoreBackup={restoreAppBackup} />;
           case 'favorites': return <FavoritesView onBack={() => setView('home')} settings={settings} killers={killers} survivors={survivors} perks={perks} items={items} addons={addons} offerings={offerings} toggleFavorite={toggleFavorite} setView={setView} onPerkTap={setSelectedPerk} />;

@@ -1,0 +1,70 @@
+name: Content Guardrails
+
+on:
+  pull_request:
+    paths:
+      - 'the-entity-wiki/**'
+      - '.github/workflows/content-guardrails.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'the-entity-wiki/**'
+      - '.github/workflows/content-guardrails.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-integrity:
+    name: Deterministic Integrity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: the-entity-wiki
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: the-entity-wiki/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify generated content and contracts
+        run: npm run check:data
+
+      - name: Verify offline runtime guarantees
+        run: npm run verify:offline
+
+  live-source-health:
+    name: Live Source Health
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: the-entity-wiki
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: the-entity-wiki/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check source endpoints health
+        run: npm run sync:sources:health

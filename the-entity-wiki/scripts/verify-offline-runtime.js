@@ -11,6 +11,7 @@ const WEB_ROOT = path.join(ROOT, 'web');
 const INDEX_PATH = path.join(WEB_ROOT, 'index.html');
 const DATA_PATH = path.join(WEB_ROOT, 'data.js');
 const COSMETICS_DATA_PATH = path.join(WEB_ROOT, 'cosmetics.js');
+const COMMUNITY_CONTENT_DATA_PATH = path.join(WEB_ROOT, 'community-content.js');
 const WORLDLE_DATA_PATH = path.join(WEB_ROOT, 'worldle-data.js');
 const CAPACITOR_CONFIG_PATH = path.join(ROOT, 'capacitor.config.json');
 const ANDROID_MANIFEST_PATH = path.join(ROOT, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
@@ -52,6 +53,14 @@ function parseCosmeticsData() {
   vm.createContext(sandbox);
   vm.runInContext(`${code}\nthis.COSMETICS_CATALOG = COSMETICS_CATALOG;`, sandbox);
   return sandbox.COSMETICS_CATALOG;
+}
+
+function parseCommunityContentData() {
+  const code = fs.readFileSync(COMMUNITY_CONTENT_DATA_PATH, 'utf8');
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(`${code}\nthis.COMMUNITY_CONTENT = COMMUNITY_CONTENT;`, sandbox);
+  return sandbox.COMMUNITY_CONTENT;
 }
 
 function normalizeEmojiClueSets(rawSets) {
@@ -140,6 +149,7 @@ function auditRequiredFiles(indexHtml) {
     'web/vendor/babel.min.js',
     'web/vendor/tailwindcss.min.js',
     'web/cosmetics.js',
+    'web/community-content.js',
     'web/worldle-data.js',
     'web/assets/default-killer.png',
     'web/assets/default-survivor.png',
@@ -165,6 +175,10 @@ function auditRequiredFiles(indexHtml) {
 
   if (!/<script\s+src=["']cosmetics\.js["']><\/script>/.test(indexHtml)) {
     fail('web/index.html does not load web/cosmetics.js.');
+  }
+
+  if (!/<script\s+src=["']community-content\.js["']><\/script>/.test(indexHtml)) {
+    fail('web/index.html does not load web/community-content.js.');
   }
 }
 
@@ -236,7 +250,7 @@ function auditCosmetics(db, catalog) {
   const seenIds = new Set();
   const groups = [
     { key: 'characterSwaps', label: 'Character swap cosmetic' },
-    { key: 'fullSets', label: 'Full set cosmetic' }
+    { key: 'fullSets', label: 'Cosmetic' }
   ];
 
   groups.forEach(({ key, label: groupLabel }) => {
@@ -307,6 +321,7 @@ function main() {
   const indexHtml = fs.readFileSync(INDEX_PATH, 'utf8');
   const database = parseDatabase();
   const cosmeticsCatalog = parseCosmeticsData();
+  const communityContent = parseCommunityContentData();
   const worldleData = parseWorldleData();
   auditHtml(indexHtml);
   auditCapacitorConfig();
@@ -315,6 +330,9 @@ function main() {
   auditRequiredFiles(indexHtml);
   auditDatabaseImages(database);
   auditCosmetics(database, cosmeticsCatalog);
+  if (!communityContent || typeof communityContent !== 'object') {
+    fail('Community content runtime module did not expose a valid COMMUNITY_CONTENT object.');
+  }
   auditOfferingFixes(database);
   auditWorldle(indexHtml, database, worldleData);
 

@@ -24,7 +24,7 @@ function main() {
 
   const groups = [
     { key: 'characterSwaps', label: 'Character Swaps' },
-    { key: 'fullSets', label: 'Full Sets' }
+    { key: 'fullSets', label: 'Cosmetics' }
   ];
   const seenIds = new Set();
   const lines = [];

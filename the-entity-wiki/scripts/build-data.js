@@ -10,9 +10,11 @@ const WEB_ROOT = path.join(ROOT, 'web');
 const DATABASE_PATH = path.join(CONTENT_ROOT, 'database.json');
 const TIMELINE_PATH = path.join(CONTENT_ROOT, 'timeline.json');
 const COSMETICS_PATH = path.join(CONTENT_ROOT, 'cosmetics.json');
+const COMMUNITY_CONTENT_PATH = path.join(CONTENT_ROOT, 'community-content.json');
 const WEB_DATABASE_PATH = path.join(WEB_ROOT, 'data.js');
 const WEB_TIMELINE_PATH = path.join(WEB_ROOT, 'lore.js');
 const WEB_COSMETICS_PATH = path.join(WEB_ROOT, 'cosmetics.js');
+const WEB_COMMUNITY_CONTENT_PATH = path.join(WEB_ROOT, 'community-content.js');
 
 const DATABASE_KEYS = [
   'killers',
@@ -176,6 +178,35 @@ function validateCosmeticsCatalog(catalog, database) {
   });
 }
 
+function validateCommunityContent(snapshot) {
+  ensureObject(snapshot, 'content/community-content.json');
+
+  if (typeof snapshot.generatedAt !== 'string' || !snapshot.generatedAt.trim()) {
+    fail('content/community-content.json field "generatedAt" must be a non-empty string.');
+  }
+
+  ensureObject(snapshot.metadata, 'content/community-content.json metadata');
+  if (!Array.isArray(snapshot.metadata.sources)) {
+    fail('content/community-content.json metadata.sources must be an array.');
+  }
+
+  ensureObject(snapshot.addonTierlist, 'content/community-content.json addonTierlist');
+  if (!Array.isArray(snapshot.addonTierlist.killers)) {
+    fail('content/community-content.json addonTierlist.killers must be an array.');
+  }
+
+  ensureObject(snapshot.builds, 'content/community-content.json builds');
+  ensureObject(snapshot.builds.roles, 'content/community-content.json builds.roles');
+  if (!Array.isArray(snapshot.builds.roles.killers) || !Array.isArray(snapshot.builds.roles.survivors)) {
+    fail('content/community-content.json builds.roles.killers and builds.roles.survivors must be arrays.');
+  }
+
+  ensureObject(snapshot.characterInfo, 'content/community-content.json characterInfo');
+  if (!Array.isArray(snapshot.characterInfo.killers) || !Array.isArray(snapshot.characterInfo.survivors)) {
+    fail('content/community-content.json characterInfo.killers and characterInfo.survivors must be arrays.');
+  }
+}
+
 function toJson(value) {
   return JSON.stringify(value, null, 2);
 }
@@ -235,6 +266,17 @@ function generateCosmeticsModule(catalog) {
   ].join('\n');
 }
 
+function generateCommunityContentModule(snapshot) {
+  return [
+    `var COMMUNITY_CONTENT = ${toJson(snapshot)};`,
+    '',
+    "if (typeof module !== 'undefined' && module.exports) {",
+    '  module.exports = COMMUNITY_CONTENT;',
+    '}',
+    ''
+  ].join('\n');
+}
+
 function compareOutput(filePath, nextContent) {
   const currentContent = fs.readFileSync(filePath, 'utf8');
   return currentContent === nextContent;
@@ -249,20 +291,24 @@ function main() {
   const database = readJson(DATABASE_PATH);
   const timeline = readJson(TIMELINE_PATH);
   const cosmeticsCatalog = readJson(COSMETICS_PATH);
+  const communityContent = readJson(COMMUNITY_CONTENT_PATH);
 
   validateDatabase(database);
   validateTimeline(timeline);
   validateCosmeticsCatalog(cosmeticsCatalog, database);
+  validateCommunityContent(communityContent);
 
   const nextDatabaseModule = generateDatabaseModule(database);
   const nextTimelineModule = generateTimelineModule(timeline);
   const nextCosmeticsModule = generateCosmeticsModule(cosmeticsCatalog);
+  const nextCommunityContentModule = generateCommunityContentModule(communityContent);
 
   if (checkMode) {
     const staleFiles = [];
     if (!compareOutput(WEB_DATABASE_PATH, nextDatabaseModule)) staleFiles.push('web/data.js');
     if (!compareOutput(WEB_TIMELINE_PATH, nextTimelineModule)) staleFiles.push('web/lore.js');
     if (!compareOutput(WEB_COSMETICS_PATH, nextCosmeticsModule)) staleFiles.push('web/cosmetics.js');
+    if (!compareOutput(WEB_COMMUNITY_CONTENT_PATH, nextCommunityContentModule)) staleFiles.push('web/community-content.js');
 
     if (staleFiles.length) {
       console.error(`build-data: generated output is stale: ${staleFiles.join(', ')}`);
@@ -276,6 +322,7 @@ function main() {
   writeOutput(WEB_DATABASE_PATH, nextDatabaseModule);
   writeOutput(WEB_TIMELINE_PATH, nextTimelineModule);
   writeOutput(WEB_COSMETICS_PATH, nextCosmeticsModule);
+  writeOutput(WEB_COMMUNITY_CONTENT_PATH, nextCommunityContentModule);
 }
 
 main();

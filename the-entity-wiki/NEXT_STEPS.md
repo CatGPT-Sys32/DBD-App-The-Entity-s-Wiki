@@ -1,6 +1,6 @@
 # The Entity's Wiki: Handoff Notes
 
-Last updated: 2026-03-29
+Last updated: 2026-04-12
 
 ## Project Contract
 
@@ -191,6 +191,43 @@ Suggested release flow:
 6. Build the Android app
 7. Smoke test the packaged app offline
 
+## Phase 6: Unified Sync Automation
+
+Phase 6 is complete.
+
+What phase 6 means in practice:
+
+- One-command updater now exists at `npm run sync:all-updates`.
+- The default mode is now **full** and includes:
+  - source health checks before scraping
+  - community content sync
+  - map layout sync/legacy upgrades
+  - perk/addon description sync
+  - icon/offering/cosmetics refresh
+  - full build/check/verification chain (including strict data-contract tests)
+- A fast mode exists at `npm run sync:all-updates:fast` (same flow, but skips heavy asset refresh steps).
+- An explicit full alias exists at `npm run sync:all-updates:full`.
+- Each run writes release artifacts to:
+  - `review/sync-all-updates-report.json`
+  - `review/release-summary.md`
+
+CI guardrails now in place:
+
+- GitHub Actions workflow: `.github/workflows/content-guardrails.yml`
+- PR/push checks run deterministic integrity (`check:data` + offline verifier).
+- Scheduled/manual checks run live source health checks (`sync:sources:health`).
+
+Description sync policy in this phase:
+
+- `npm run sync:descriptions` now updates both perks and addons from:
+  - `https://dbd.tricky.lol/api/perks`
+  - `https://dbd.tricky.lol/api/addons`
+- It writes:
+  - `content/perk-description-report.json`
+  - `content/addon-description-report.json`
+  - `review/description-sync-report.json`
+- It fails by default if unresolved records are found.
+
 ## Things To Avoid
 
 - Do not add runtime fetches, CDN scripts, remote fonts, or remote fallback logic.
@@ -200,6 +237,21 @@ Suggested release flow:
 - Do not mix data refresh work with large architecture changes in the same pass unless the pipeline is already stable.
 
 ## Quick Commands
+
+- Full maintenance refresh (recommended default):
+  - `npm run sync:all-updates`
+- Fast maintenance refresh (skip heavy asset steps):
+  - `npm run sync:all-updates:fast`
+- Explicit full refresh:
+  - `npm run sync:all-updates:full`
+- Description integrity check (must stay unresolved=0 and changes=no for clean state):
+  - `npm run sync:descriptions -- --check`
+- Source endpoint health checks only (no writes):
+  - `npm run sync:sources:health`
+- Strict schema/content contract checks:
+  - `npm run verify:data-contracts`
+- Generate markdown release summary from latest orchestration report:
+  - `npm run release:summary`
 
 - Normalize canonical gameplay image paths:
   - `npm run normalize:images`
@@ -239,6 +291,10 @@ Current model:
 
 Source policy:
 
+- Day-to-day automated source for live description refresh is now:
+  - `npm run sync:descriptions` via the `dbd.tricky.lol` APIs
+- The previous NightLight manifest importer remains in the repo as a deterministic fallback path for targeted manual curation.
+
 - The canonical source for the full post-9.5 verification pass is the set of NightLight manifest shards:
   - `scripts/perk-description-manifest-part1.json`
   - `scripts/perk-description-manifest-part2.json`
@@ -261,7 +317,7 @@ Important implementation details:
 - The importer also writes `content/perk-description-report.json`, which is the provenance/coverage report for the full 309-perk roster.
 - `verify:content` and `check:data` now include `scripts/verify-perk-descriptions.js`.
 - Current verified counts:
-  - `different = 194`
-  - `same_as_legacy = 115`
+  - `different = 185`
+  - `same_as_legacy = 124`
   - `unresolved = 0`
 - The UI highlights percentage tokens in post-9.5 mode and preserves multiline/bullet formatting where stored.

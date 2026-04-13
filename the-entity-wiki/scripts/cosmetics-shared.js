@@ -13,8 +13,10 @@ const FULL_SET_DIR = path.join(WEB_ROOT, 'dbd_images', 'cosmetics', 'full_sets')
 const API_BASE = 'https://deadbydaylight.wiki.gg/api.php';
 const USER_AGENT = 'TheEntityWikiCosmeticsSync/1.0 (local-dev)';
 const REQUEST_DELAY_MS = 260;
+const REQUEST_TIMEOUT_MS = 25000;
 const RETRYABLE_ERROR_CODES = new Set(['ratelimited']);
 const HTTP_RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const RETRYABLE_NETWORK_CODES = new Set(['ETIMEDOUT', 'ECONNRESET', 'EPIPE', 'ENOTFOUND', 'EAI_AGAIN']);
 
 const CHARACTER_SWAP_CATEGORIES = [
   { key: 'legendary', title: 'Category:Legendary_Characters', label: 'Legendary' },
@@ -140,6 +142,11 @@ function request(url, responseType = 'text', redirects = 0) {
       });
     });
     req.on('error', reject);
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      const timeoutError = new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms for ${url}`);
+      timeoutError.code = 'ETIMEDOUT';
+      req.destroy(timeoutError);
+    });
   });
 }
 
@@ -150,7 +157,9 @@ async function requestJson(params, attempt = 0) {
   try {
     raw = await request(`${API_BASE}?${query.toString()}`);
   } catch (error) {
-    if (HTTP_RETRY_STATUSES.has(error.statusCode) && attempt < 6) {
+    const retryableStatus = HTTP_RETRY_STATUSES.has(error.statusCode);
+    const retryableNetwork = RETRYABLE_NETWORK_CODES.has(String(error.code || ''));
+    if ((retryableStatus || retryableNetwork) && attempt < 6) {
       await sleep((attempt + 1) * 1500);
       return requestJson(params, attempt + 1);
     }
