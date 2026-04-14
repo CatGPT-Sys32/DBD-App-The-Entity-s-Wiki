@@ -45,6 +45,32 @@ jobs:
       - name: Verify offline runtime guarantees
         run: npm run verify:offline
 
+  android-debug-build:
+    name: Android Debug Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: the-entity-wiki/android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x gradlew
+
+      - name: Assemble debug app
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Validate release minification
+        run: ./gradlew :app:minifyReleaseWithR8 --no-daemon
+
   live-source-health:
     name: Live Source Health
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

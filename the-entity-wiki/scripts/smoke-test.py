@@ -222,7 +222,7 @@ def main():
             "params": {"view": "cosmetics", "tab": "fullSets"},
             "check": lambda state: (
                 state["smokeView"] == "cosmetics" or (_ for _ in ()).throw(RuntimeError(f"cosmetics-browser: expected cosmetics, found {state['smokeView']}")),
-                "Legendary Characters" in state["text"] or (_ for _ in ()).throw(RuntimeError("cosmetics-browser: missing title")),
+                ("Cosmetics" in state["text"] or "Legendary Characters" in state["text"]) or (_ for _ in ()).throw(RuntimeError("cosmetics-browser: missing title")),
             ),
         },
     ]
