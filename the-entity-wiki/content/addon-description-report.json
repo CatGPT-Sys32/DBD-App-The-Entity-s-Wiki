@@ -1,8 +1,8 @@
 {
   "totalAddons": 906,
   "counts": {
-    "updated": 0,
-    "unchanged": 906,
+    "updated": 1,
+    "unchanged": 905,
     "unresolved": 0
   },
   "entries": [
@@ -1312,7 +1312,7 @@
       "id": "634fe595-c33b-41a2-af36-b78e7ddfca4f",
       "internalId": "Addon_Ghost_WalleyesMatchbook",
       "name": "Walleye's Matchbook",
-      "status": "unchanged",
+      "status": "updated",
       "sourceUrl": "https://dbd.tricky.lol/api/addons#Addon_Ghost_WalleyesMatchbook"
     },
     {

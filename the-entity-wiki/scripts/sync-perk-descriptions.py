@@ -16,6 +16,7 @@ STATUS_EXPLANATION_RE = re.compile(
     r"^(?:Blindness|Broken|Exhausted|Exposed|Haste|Hindered|Oblivious|Undetectable)\b.*(?:prevents|increases|reduces|hides|downed)",
     re.IGNORECASE,
 )
+UNRESOLVED_TEMPLATE_RE = re.compile(r"\{(?:Tunable|Keyword|Input)\.[^}]+\}")
 
 
 def fail(message):
@@ -130,6 +131,9 @@ def load_manifest_entries():
                 description = payload.get("descriptionPost95")
                 if not isinstance(description, str) or not description.strip():
                     fail(f"{manifest_path} entry for {perk_name} is missing descriptionPost95")
+                match = UNRESOLVED_TEMPLATE_RE.search(description)
+                if match:
+                    fail(f"{manifest_path} entry for {perk_name} has unresolved template token {match.group(0)}")
             if status != "different" and "descriptionPost95" in payload and payload["descriptionPost95"]:
                 fail(f"{manifest_path} entry for {perk_name} should not include descriptionPost95 for status={status}")
             entries[perk_name] = {

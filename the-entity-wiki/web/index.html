@@ -42,6 +42,7 @@
       --full-select-text: var(--text);
       --full-select-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 28px rgba(0, 0, 0, 0.35);
       --full-select-focus-ring: rgba(56, 189, 248, 0.25);
+      --system-nav-button-offset: 0px;
     }
 
     body {
@@ -367,7 +368,7 @@
     .nav-safe-area {
       padding-left: max(12px, env(safe-area-inset-left));
       padding-right: max(12px, env(safe-area-inset-right));
-      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      padding-bottom: calc(max(12px, env(safe-area-inset-bottom, 0px)) + var(--system-nav-button-offset));
     }
 
     @media (max-width: 360px) {
@@ -1082,11 +1083,11 @@
       }
     };
     const META = {
-      appVersion: "5.29.0",
-      gameVersion: "9.5.0",
-      lastSynced: "March 29, 2026",
+      appVersion: "5.31.0",
+      gameVersion: "9.6.0",
+      lastSynced: "April 30, 2026",
       contact: {
-        email: "baptistedeparday@gmail.com",
+        email: "hexplosions.happen@gmail.com",
         discord: "hexplosions_happen"
       },
       thanks: [
@@ -1099,6 +1100,21 @@
       ]
     };
     const CHANGELOG = [
+      {
+        version: "5.31.0",
+        date: "May 1, 2026",
+        changes: [
+          "FIX : Community Tierlists links open the latest sources",
+          "UPDATE : Updated to game version 9.6.0 with the latest content and changes, including the mid-season patch adjustments"
+        ]
+      },
+      {
+        version: "5.30.0",
+        date: "April 30, 2026",
+        changes: [
+          "UPDATE : Edited scripts to manually read patch notes"
+        ]
+      },
       {
         version: "5.29.0",
         date: "April 13, 2026",
@@ -2034,6 +2050,7 @@
       showTemplates: true,
       rarityGlows: true,
       hapticEnabled: true,
+      systemNavButtonOffset: false,
       ownedOnlyGlobal: false,
       progressionTabOrder: [...PROGRESSION_TABS],
       navItemsCustomized: false,
@@ -3940,8 +3957,8 @@
       },
       "The Blight": {
         powerName: "Blighted Corruption",
-        survivorTips: "He wants clean bounces into hits. Play around awkward shapes that do not give him good angles. Change direction late, and do not run into open space where he can chain rushes forever. If you hear him commit, cut corners and break line of sight.",
-        killerTips: "Learn which surfaces give reliable bounces and chain your rushes with a plan, not vibes. Use rushes to gain position first, then convert into a lethal hit when the survivor is committed. If a tile is bad for rushing, end it with M1 and move on. Blight wins by turning distance into instant pressure."
+        survivorTips: "He wants clean bounces into hits, but his 4.4 m/s base speed makes failed rushes more costly. Play around awkward shapes that do not give him good angles. Change direction late, and do not run into open space where he can chain rushes forever. If he breaks a dropped pallet, track the reset because his Rush tokens are cut down to 2 below maximum.",
+        killerTips: "Learn which surfaces give reliable bounces and chain your rushes with a plan, not vibes. Your 4.4 m/s base speed means you need power routing more than simple M1 walking. Breaking a dropped pallet now drops your Rush tokens to 2 below maximum and resets recharge, so break only when it creates real position or removes a key resource."
       },
       "The Twins": {
         powerName: "Blood Bond",
@@ -4070,7 +4087,7 @@
       "The Oni": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Deathslinger": { terrorRadius: "32m", speed: "4.4 m/s", height: "Tall" },
       "The Executioner": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
-      "The Blight": { terrorRadius: "32m", speed: "4.6 m/s", height: "Average" },
+      "The Blight": { terrorRadius: "32m", speed: "4.4 m/s", height: "Average" },
       "The Twins": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
       "The Trickster": { terrorRadius: "24m", speed: "4.4 m/s", height: "Average" },
       "The Nemesis": { terrorRadius: "32m", speed: "4.6 m/s", height: "Tall" },
@@ -11541,6 +11558,29 @@
         return `${Math.floor(ageDays / 365)}y old`;
       };
 
+      const renderTierlistSummaryLink = (entry, emptyLabel) => {
+        if (!entry) return <span className="text-zinc-500">{emptyLabel}</span>;
+        const title = entry.title || emptyLabel;
+        const meta = [entry.patch, entry.sourceType].filter(Boolean).join(' / ');
+        if (!entry.url) {
+          return (
+            <span className="inline-flex flex-col gap-0.5">
+              <span className="text-white">{title}</span>
+              {meta && <span className="text-[10px] text-zinc-500">{meta}</span>}
+            </span>
+          );
+        }
+        return (
+          <a href={entry.url} target="_blank" rel="noreferrer" className="group inline-flex flex-col gap-0.5 rounded-lg -mx-1 px-1 py-0.5 text-white hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500/40">
+            <span className="inline-flex items-center gap-1">
+              <span className="underline decoration-white/20 underline-offset-4 group-hover:decoration-red-300/70">{title}</span>
+              <span aria-hidden="true" className="text-[10px] opacity-70">open</span>
+            </span>
+            {meta && <span className="text-[10px] text-zinc-500 group-hover:text-red-300/80">{meta}</span>}
+          </a>
+        );
+      };
+
       return (
         <div className="flex flex-col h-full pt-12 pb-32 px-6 overflow-y-auto custom-scrollbar">
           <Header title="Community Content" subtitle="Guides, builds, and tierlists" onBack={onBack} infoTips={VIEW_TIPS.communitycontent} />
@@ -11780,8 +11820,12 @@
                   {tierlistComparisons.map((comparison) => (
                     <div key={comparison.categoryLabel} className="p-3 rounded-2xl bg-zinc-900/45 border border-white/10">
                       <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 font-bold">{comparison.categoryLabel}</p>
-                      <p className="text-sm text-white mt-1">Latest: {comparison.latest?.title || 'n/a'}</p>
-                      <p className="text-[11px] text-zinc-500 mt-1">Previous: {comparison.previous?.title || 'none recorded'}</p>
+                      <div className="text-sm mt-1">
+                        <span className="text-zinc-400">Latest: </span>{renderTierlistSummaryLink(comparison.latest, 'n/a')}
+                      </div>
+                      <div className="text-[11px] mt-2">
+                        <span className="text-zinc-500">Previous: </span>{renderTierlistSummaryLink(comparison.previous, 'none recorded')}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -12164,6 +12208,12 @@
                   onChange={(value) => updateSetting('hapticEnabled', value)}
                   label="Haptic feedback"
                   description="Use short vibration feedback on supported mobile devices."
+                />
+                <SettingsToggleRow
+                  checked={settings.systemNavButtonOffset === true}
+                  onChange={(value) => updateSetting('systemNavButtonOffset', value)}
+                  label="Extra space for Android navigation buttons"
+                  description="Moves the bottom navigation bar up on phones using the 3-button system navigation bar."
                 />
                 <SettingsToggleRow
                   checked={settings.ownedOnlyGlobal === true}
@@ -14188,12 +14238,13 @@
         rootEl.style.setProperty('--full-select-text', fullSelectText);
         rootEl.style.setProperty('--full-select-shadow', fullSelectShadow);
         rootEl.style.setProperty('--full-select-focus-ring', fullSelectFocusRing);
+        rootEl.style.setProperty('--system-nav-button-offset', settings.systemNavButtonOffset === true ? '34px' : '0px');
         const fontSize = settings.fontSize === 'small' ? '14px' : settings.fontSize === 'large' ? '18px' : '16px';
         rootEl.style.fontSize = fontSize;
         document.body.classList.toggle('light-mode', !hasFullPalette && settings.colorMode === 'light');
         document.body.classList.toggle('oled-mode', !hasFullPalette && settings.colorMode === 'oled');
         document.body.classList.toggle('full-palette-mode', hasFullPalette);
-      }, [theme, themeKey, settings.fontSize, settings.colorMode]);
+      }, [theme, themeKey, settings.fontSize, settings.colorMode, settings.systemNavButtonOffset]);
       const liveLookups = useMemo(() => buildDataLookups({ killers, survivors, perks, maps, builds }), [killers, survivors, perks, maps, builds]);
       const ownedState = useMemo(() => resolveOwnedState({ progression, killers, survivors, perks }), [progression, killers, survivors, perks]);
       const visibleKillers = useMemo(() => settings.ownedOnlyGlobal ? killers.filter(killer => ownedState.isCharacterOwned(killer.id)) : killers, [settings.ownedOnlyGlobal, killers, ownedState]);

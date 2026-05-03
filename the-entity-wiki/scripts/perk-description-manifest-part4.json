@@ -167,7 +167,7 @@
   "Clairvoyance": {
     "status": "different",
     "sourceUrl": "https://nightlight.gg/perks/Clairvoyance",
-    "descriptionPost95": "Whenever you bless or cleanse a Totem, while not holding an item, use {Input.UseItem} to, for up to 10/11/12 s and within 64 m:\n\n- See the Auras of Chests.\n- See the Auras of Exit Gate Switches.\n- See the Auras of Generators.\n- See the Aura of the Hatch.\n- See the Auras of Hooks."
+    "descriptionPost95": "Whenever you bless or cleanse a Totem, while not holding an item, use the Use Item button to, for up to 10/11/12 s and within 64 m:\n\n- See the Auras of Chests.\n- See the Auras of Exit Gate Switches.\n- See the Auras of Generators.\n- See the Aura of the Hatch.\n- See the Auras of Hooks."
   },
   "Boon: Circle of Healing": {
     "status": "different",

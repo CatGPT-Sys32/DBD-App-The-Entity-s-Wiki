@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-13T01:42:37.472Z",
+  "generatedAt": "2026-04-30T18:58:49.514Z",
   "options": {
     "dryRun": false,
     "checkMode": false,
@@ -31,17 +31,22 @@
   "addons": {
     "total": 906,
     "counts": {
-      "updated": 0,
-      "unchanged": 906,
+      "updated": 1,
+      "unchanged": 905,
       "unresolved": 0
     },
     "changes": {
-      "updated": 0,
-      "unchanged": 906,
-      "total": 0
+      "updated": 1,
+      "unchanged": 905,
+      "total": 1
     },
     "unresolvedCount": 0,
     "unresolved": [],
-    "sampleChanges": []
+    "sampleChanges": [
+      {
+        "name": "Walleye's Matchbook",
+        "internalId": "Addon_Ghost_WalleyesMatchbook"
+      }
+    ]
   }
 }

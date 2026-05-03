@@ -33,6 +33,7 @@ if (!Array.isArray(report.entries)) {
 
 const perks = database.perks;
 const entries = report.entries;
+const unresolvedTemplateRe = /\{(?:Tunable|Keyword|Input)\.[^}]+\}/;
 
 if (report.totalPerks !== perks.length) {
   fail(`report totalPerks=${report.totalPerks} does not match database perks=${perks.length}`);
@@ -68,6 +69,10 @@ for (const perk of perks) {
     different += 1;
     if (!perk.descriptionPost95) {
       fail(`${perk.name} is marked different but has no descriptionPost95`);
+    }
+    const unresolvedMatch = String(perk.descriptionPost95).match(unresolvedTemplateRe);
+    if (unresolvedMatch) {
+      fail(`${perk.name} has unresolved template token ${unresolvedMatch[0]} in descriptionPost95`);
     }
     continue;
   }
